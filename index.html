@@ -4,135 +4,111 @@
   <meta charset="UTF-8">
   <title>波场极速彩 - 智能预测看板</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      background-color: #f9f9f9;
-    }
-    .highlight {
-      font-weight: bold;
-      color: #d63384;
-    }
-    .matched {
-      color: green;
-      font-weight: bold;
-    }
-    .unmatched {
-      color: red;
-      font-weight: bold;
-    }
+    body { font-family: Arial; margin: 0; background: #f8f8f8; }
+    .box { background: #fff; padding: 20px; margin: 20px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+    .success { background: #dff0d8; color: #3c763d; padding: 10px; margin-bottom: 15px; }
+    .predict-box { background: #d9f7fc; padding: 20px; border-radius: 4px; }
+    .highlight { color: #d00; font-weight: bold; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    .table th, .table td { padding: 8px; border: 1px solid #ccc; text-align: center; }
+    .hit { color: green; }
+    .miss { color: red; }
   </style>
 </head>
 <body>
-  <div class="container mt-4">
-
-    <h4>预测命中记录</h4>
-    <ul id="prediction-history" class="list-group mb-4"></ul>
-
-    <div class="alert alert-success" id="api-status">数据更新成功</div>
-
-    <div class="p-3 mb-4 border bg-info-subtle rounded">
-      <p><strong>预测数字：</strong><span id="predicted-number">--</span></p>
-      <p><strong>命中率估算：</strong><span id="predicted-accuracy">--%</span></p>
-      <p><strong>使用模型：</strong><span id="model-name">--</span></p>
-      <p><strong>分析说明：</strong><span id="model-reason">--</span></p>
+  <div class="box">
+    <div class="success" id="status">数据更新成功</div>
+    <div class="predict-box">
+      <p><strong>预测数字：</strong><span id="predict-number">-</span></p>
+      <p><strong>命中率估算：</strong><span id="accuracy">--%</span></p>
+      <p><strong>使用模型：</strong><span id="model-type">--</span></p>
+      <p><strong>分析说明：</strong><span id="analysis">--</span></p>
     </div>
+    <p>最后开奖时间：<span id="last-time">--</span></p>
+  </div>
 
-    <div class="table-responsive">
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>期号</th>
-            <th>开奖号码</th>
-            <th>开奖时间</th>
-          </tr>
-        </thead>
-        <tbody id="lottery-table-body"></tbody>
-      </table>
-    </div>
+  <div class="box">
+    <h3>预测命中记录</h3>
+    <ul id="history"></ul>
+  </div>
 
-    <p class="text-muted mt-3">最后开奖时间：<span id="last-updated">--</span></p>
+  <div class="box">
+    <h3>开奖记录</h3>
+    <table class="table" id="result-table">
+      <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <script>
-    const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
-    const REFRESH_INTERVAL = 33000;
+    const API = 'https://corsproxy.io/?https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+    const INTERVAL = 3000;
+    let history = [];
 
-    let predictionHistory = [];
-    let lastBetNo = '';
-
-    function simulatedPrediction(counts) {
-      const total = counts.reduce((sum, v) => sum + v, 0);
-      const probs = counts.map(c => c / total);
-      const r = Math.random();
-      let acc = 0;
-      for (let i = 0; i < probs.length; i++) {
-        acc += probs[i];
-        if (r <= acc) return i;
-      }
-      return 0;
+    function predictSmart(data) {
+      const counts = {};
+      data.forEach(d => d.openNumber.split(',').forEach(n => counts[n] = (counts[n] || 0) + 1));
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const top = sorted.slice(0, 3).map(i => i[0]);
+      return {
+        number: top[0],
+        model: "概率加权模型",
+        analysis: "频率模型得分更稳定"
+      };
     }
 
-    function fetchLotteryData() {
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-          const rows = data.data.slice().reverse();
-          const tbody = document.getElementById('lottery-table-body');
-          tbody.innerHTML = '';
-          const counts = Array(10).fill(0);
+    async function load() {
+      try {
+        const res = await fetch(API);
+        const json = await res.json();
+        const list = json.data;
+        const now = new Date();
+        const last = list[0];
+        document.getElementById('last-time').textContent = last.openTime;
 
-          rows.forEach(item => {
-            const nums = item.openNumber.split(',').map(Number);
-            nums.forEach(n => counts[n]++);
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>{item.betNo}</td><td>{item.openNumber}</td><td>{item.openTime}</td>`;
-            tbody.appendChild(tr);
-          });
-
-          const pred = simulatedPrediction(counts);
-          document.getElementById('predicted-number').textContent = pred;
-          document.getElementById('predicted-accuracy').textContent = (counts[pred] / rows.length * 100).toFixed(2) + '%';
-          document.getElementById('model-name').textContent = '概率加权模型';
-          document.getElementById('model-reason').textContent = '频率模型得分更稳定';
-
-          // 同步开奖时间
-          const last = rows[rows.length - 1];
-          document.getElementById('last-updated').textContent = last.openTime;
-
-          if (last.betNo !== lastBetNo) {
-            const hit = last.openNumber.split(',').map(Number).includes(pred);
-            predictionHistory.unshift({
-              betNo: last.betNo,
-              number: pred,
-              hit: hit
-            });
-            lastBetNo = last.betNo;
-          }
-
-          renderPredictionHistory();
-        })
-        .catch(err => {
-          document.getElementById('api-status').textContent = '接口请求失败';
-          document.getElementById('api-status').className = 'alert alert-danger';
+        // 填表格
+        const tbody = document.querySelector("#result-table tbody");
+        tbody.innerHTML = '';
+        list.forEach(item => {
+          const tr = `<tr><td>${item.betNo}</td><td>${item.openNumber}</td><td>${item.openTime}</td></tr>`;
+          tbody.innerHTML += tr;
         });
+
+        // 预测
+        const predict = predictSmart(list);
+        document.getElementById('predict-number').textContent = predict.number;
+        document.getElementById('model-type').textContent = predict.model;
+        document.getElementById('analysis').textContent = predict.analysis;
+
+        // 命中统计
+        const lastDraw = list[0];
+        const lastNumbers = lastDraw.openNumber.split(',');
+        const isHit = lastNumbers.includes(predict.number);
+        history.unshift({
+          number: predict.number,
+          betNo: lastDraw.betNo,
+          hit: isHit
+        });
+        if (history.length > 20) history.pop();
+
+        const acc = (history.filter(i => i.hit).length / history.length * 100).toFixed(2);
+        document.getElementById('accuracy').textContent = acc + '%';
+
+        const ul = document.getElementById('history');
+        ul.innerHTML = '';
+        history.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `预测期号 ${item.betNo} - 数字 ${item.number} - <span class="${item.hit ? 'hit' : 'miss'}">${item.hit ? '命中' : '未中'}</span>`;
+          ul.appendChild(li);
+        });
+      } catch (e) {
+        document.getElementById('status').textContent = '更新失败，请稍后重试';
+      }
     }
 
-    function renderPredictionHistory() {
-      const ul = document.getElementById('prediction-history');
-      ul.innerHTML = '';
-      predictionHistory.slice(0, 10).forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item';
-        li.innerHTML = `预测期号 {item.betNo} - 数字 {item.number} - <span class="{item.hit ? 'matched' : 'unmatched'}">{item.hit ? '命中' : '未中'}</span>`;
-        ul.appendChild(li);
-      });
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      fetchLotteryData();
-      setInterval(fetchLotteryData, REFRESH_INTERVAL);
-    });
+    load();
+    setInterval(load, INTERVAL);
   </script>
 </body>
 </html>
