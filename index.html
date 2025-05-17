@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>波场极速彩 - 预测看板 (GitHub Pages版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h2 class="mb-4">波场极速彩 - 预测看板</h2>
+
+    <div id="api-status" class="alert alert-secondary">接口状态：初始化中...</div>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>期号</th>
+                <th>开奖号码</th>
+                <th>开奖时间</th>
+            </tr>
+        </thead>
+        <tbody id="lottery-table-body">
+            <tr><td colspan="3" class="text-center">加载中...</td></tr>
+        </tbody>
+    </table>
+    <p class="text-muted" id="last-updated">最后更新：--</p>
+
+    <h4 class="mt-5">下一期预测</h4>
+    <div class="alert alert-info">
+        <strong>预测下期必出数字：</strong> <span id="predicted-number">--</span><br>
+        <small>理论命中率预估：<span id="predicted-accuracy">--</span>%</small>
+    </div>
+
+    <h4 class="mt-4">最近预测命中记录</h4>
+    <ul id="prediction-history" class="list-group"></ul>
+</div>
+
+<script>
+const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+const REFRESH_INTERVAL = 30000;
+
+let allData = [];
+let historyPredictions = [];
+
+async function fetchLotteryData() {
+    try {
+        const response = await fetch(API_URL);
+        const result = await response.json();
+
+        if (result.info === 'success' && result.data.length > 0) {
+            updateApiStatus('数据采集成功', 'success');
+
+            const existingBetNos = new Set(allData.map(item => item.betNo));
+            result.data.forEach(item => {
+                if (!existingBetNos.has(item.betNo)) {
+                    allData.push(item);
+                }
+            });
+
+            updateTable();
+            checkPredictionResult(result.data[0]);
+
+            const predictedBetNos = new Set(historyPredictions.map(p => p.targetBetNo));
+            allData.forEach(item => {
+                const nextBetNo = getNextBetNo(item.betNo);
+                if (!predictedBetNos.has(nextBetNo)) {
+                    predictAndRecord(nextBetNo);
+                }
+            });
+
+        } else {
+            updateApiStatus('接口异常或无数据返回', 'danger');
+        }
+    } catch (error) {
+        console.error('接口调用失败:', error);
+        updateApiStatus('接口请求失败', 'danger');
+    }
+}
+
+function updateApiStatus(message, type) {
+    const statusDiv = document.getElementById('api-status');
+    statusDiv.className = `alert alert-${type}`;
+    statusDiv.innerText = `接口状态：${message}`;
+}
+
+function updateTable() {
+    const tbody = document.getElementById('lottery-table-body');
+    tbody.innerHTML = '';
+
+    const sortedData = [...allData].sort((a, b) => BigInt(a.betNo) - BigInt(b.betNo));
+    const latest30 = sortedData.slice(-30);
+
+    latest30.forEach(item => {
+        const row = `
+            <tr>
+                <td>${item.betNo}</td>
+                <td>${item.openNumber}</td>
+                <td>${item.openTime}</td>
+            </tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+    });
+
+    document.getElementById('last-updated').innerText = '最后更新：' + new Date().toLocaleString();
+}
+
+function predictAndRecord(targetBetNo) {
+    const counts = Array(10).fill(0);
+    const totalNumbers = allData.length * 5;
+
+    allData.forEach(item => {
+        item.openNumber.split(',').forEach(n => counts[parseInt(n)]++);
+    });
+
+    const probabilities = counts.map(c => c / totalNumbers);
+    const hitRates = probabilities.map(p => (1 - Math.pow(1 - p, 5)) * 100);
+
+    const predicted = simulatedAnnealing(counts);
+    const predictedAccuracy = hitRates[predicted].toFixed(2);
+
+    if (targetBetNo === getNextBetNo(allData[0].betNo)) {
+        document.getElementById('predicted-number').innerText = predicted;
+        document.getElementById('predicted-accuracy').innerText = predictedAccuracy;
+    }
+
+    historyPredictions.unshift({
+        predictedNumber: predicted,
+        predictedAccuracy: predictedAccuracy,
+        targetBetNo: targetBetNo,
+        result: '待开奖'
+    });
+
+    if (historyPredictions.length > 10) historyPredictions.pop();
+
+    updatePredictionHistory();
+}
+
+function checkPredictionResult(latestData) {
+    historyPredictions.forEach(item => {
+        if (item.result === '待开奖' && item.targetBetNo === latestData.betNo) {
+            const actualNumbers = latestData.openNumber
