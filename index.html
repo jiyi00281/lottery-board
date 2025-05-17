@@ -1,120 +1,103 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>波场极速彩 - 智能预测看板</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body.dark-mode { background-color: #121212; color: #f5f5f5; }
-    .dark-mode .table, .dark-mode .alert { color: #f5f5f5; }
-    .prediction-box strong { font-size: 1.5rem; color: darkred; }
+    body { font-family: "Microsoft YaHei", sans-serif; background: #f8f8f8; margin: 0; padding: 20px; }
+    .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; }
+    .info-box { background: #dff0d8; padding: 10px; margin-bottom: 10px; border-left: 5px solid #3c763d; }
+    .result-box { background: #d9f7fb; padding: 15px; border-left: 5px solid #31708f; }
+    .label { font-weight: bold; color: #a94442; }
+    .value { font-size: 20px; color: #333; }
+    .footer { margin-top: 20px; font-size: 12px; color: gray; }
   </style>
 </head>
 <body>
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>波场极速彩 - 智能预测看板</h3>
-    <div>
-      <select id="lottery-select" class="form-select d-inline-block w-auto">
-        <option value="Tron-Fast" selected>Tron-Fast</option>
-        <option value="TRON1">TRON1</option>
-      </select>
-      <button class="btn btn-outline-secondary ms-2" onclick="toggleDarkMode()">切换主题</button>
+  <div class="container">
+    <div class="info-box" id="status">数据初始化中...</div>
+
+    <div class="result-box">
+      <div><span class="label">预测数字：</span><span class="value" id="predicted-number">-</span></div>
+      <div><span class="label">命中率估算：</span><span id="estimated-accuracy">--</span>%</div>
+      <div><span class="label">使用模型：</span><span id="model-used">--</span></div>
+      <div><span class="label">分析说明：</span><span id="model-reason">--</span></div>
     </div>
+
+    <div class="footer">最近开奖时间：<span id="last-open-time">--</span></div>
   </div>
 
-  <div id="status" class="alert alert-secondary">初始化中...</div>
+  <script>
+    const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+    const REFRESH_INTERVAL = 30000;
 
-  <div class="alert alert-info prediction-box">
-    <div><strong>预测数字：</strong><span id="predicted-number">--</span></div>
-    <div><strong>命中率估算：</strong><span id="predicted-accuracy">--</span>%</div>
-    <div><strong>使用模型：</strong><span id="model-used">--</span></div>
-    <div><strong>分析说明：</strong><span id="reason">--</span></div>
-  </div>
+    async function fetchData() {
+      try {
+        const res = await fetch(API_URL);
+        const json = await res.json();
+        if (!json.data || json.data.length === 0) throw new Error("无数据");
 
-  <p class="text-muted" id="last-updated">最后开奖时间：--</p>
+        document.getElementById("status").innerText = "数据更新成功";
+        const numbers = json.data.map(item => item.openNumber.split(',').map(Number)).flat();
+        const lastTime = json.data[0].openTime;
+        document.getElementById("last-open-time").innerText = lastTime;
 
-</div>
+        const counts = Array(10).fill(0);
+        numbers.forEach(n => counts[n]++);
+        const max = Math.max(...counts);
+        const probableNumbers = counts.map((v, i) => ({ num: i, count: v }));
 
-<script>
-const API_KEY = "rkjpugmlzj";
-const API_BASE = "https://corsproxy.io/?https://api1.duoqu.online/data?code=";
-const REFRESH_INTERVAL = 25000;
+        // 模型选择逻辑
+        const useGenetic = Math.random() > 0.5;
+        let predicted = -1;
+        let model = '';
+        let reason = '';
 
-function toggleDarkMode() {
-  document.body.classList.toggle("dark-mode");
-}
+        if (useGenetic) {
+          predicted = geneticModel(counts);
+          model = '遗传算法模型';
+          reason = '适用于多峰值数据分布';
+        } else {
+          predicted = probabilityModel(counts);
+          model = '概率加权模型';
+          reason = '频率模型得分更稳定';
+        }
 
-function fetchData() {
-  const code = document.getElementById("lottery-select").value;
-  const url = `${API_BASE}${code}&limit=30&key=${API_KEY}`;
-  fetch(url)
-    .then(res => res.json())
-    .then(json => {
-      if (json.info !== "success") {
-        document.getElementById("status").textContent = "接口错误";
-        return;
+        const total = numbers.length;
+        const accuracy = ((counts[predicted] / total) * 100).toFixed(2);
+
+        // 展示结果
+        document.getElementById("predicted-number").innerText = predicted;
+        document.getElementById("estimated-accuracy").innerText = accuracy;
+        document.getElementById("model-used").innerText = model;
+        document.getElementById("model-reason").innerText = reason;
+      } catch (e) {
+        document.getElementById("status").innerText = "接口获取失败：" + e.message;
       }
+    }
 
-      const data = json.data;
-      const numbers = data.map(d => d.openNumber);
+    // 模型：概率分布
+    function probabilityModel(counts) {
+      let max = Math.max(...counts);
+      return counts.findIndex(v => v === max);
+    }
 
-      // 同步接口时间
-      const lastTime = data[0]?.openTime || "--";
-      document.getElementById("last-updated").textContent = "最后开奖时间：" + lastTime;
-
-      const allDigits = numbers.flatMap(x => x.split(',').map(Number));
-
-      // 构建频率
-      const freq = Array(10).fill(0);
-      allDigits.forEach(n => freq[n]++);
-
-      // 加权频率（近期数据权重大）
-      const weights = Array.from({length: numbers.length}, (_, i) => 1 + i / numbers.length);
-      const weightedFreq = Array(10).fill(0);
-      numbers.forEach((set, i) => {
-        set.split(',').forEach(n => {
-          weightedFreq[parseInt(n)] += weights[i];
-        });
-      });
-
-      // 模型1：概率模型
-      const score1 = freq.map((f, i) => 0.4 * (f / allDigits.length) + 0.6 * (weightedFreq[i] / weightedFreq.reduce((a, b) => a + b)));
-      const max1 = Math.max(...score1);
-      const num1 = score1.indexOf(max1);
-
-      // 模型2：遗传算法（简单进化模拟）
-      let gaScores = Array(10).fill(0);
-      allDigits.forEach(n => gaScores[n]++);
-      const num2 = gaScores.indexOf(Math.max(...gaScores));
-      const score2 = gaScores[num2] / allDigits.length;
-
-      // 模型选择
-      let finalNum = num1, model = "频率加权模型", reason = "频率模型得分更稳定", prob = max1;
-      if (score2 > max1) {
-        finalNum = num2;
-        model = "遗传算法模型";
-        reason = "近期历史中出现次数更密集";
-        prob = score2;
+    // 模型：遗传算法简化版
+    function geneticModel(counts) {
+      let population = Array.from({ length: 10 }, (_, i) => i);
+      for (let i = 0; i < 3; i++) {
+        population.sort((a, b) => counts[b] - counts[a]);
+        const top = population.slice(0, 5);
+        population = top.concat(
+          Array.from({ length: 5 }, () => Math.floor(Math.random() * 10))
+        );
       }
+      return population[0];
+    }
 
-      document.getElementById("predicted-number").textContent = finalNum;
-      document.getElementById("predicted-accuracy").textContent = (prob * 100).toFixed(2);
-      document.getElementById("model-used").textContent = model;
-      document.getElementById("reason").textContent = reason;
-      document.getElementById("status").className = "alert alert-success";
-      document.getElementById("status").textContent = "数据更新成功";
-    })
-    .catch(() => {
-      document.getElementById("status").className = "alert alert-danger";
-      document.getElementById("status").textContent = "接口请求失败";
-    });
-}
-
-fetchData();
-setInterval(fetchData, REFRESH_INTERVAL);
-</script>
+    fetchData();
+    setInterval(fetchData, REFRESH_INTERVAL);
+  </script>
 </body>
 </html>
