@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>波场极速彩 - 预测看板 (GitHub Pages版)</title>
+    <title>波场极速彩 - 预测看板</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -37,7 +37,7 @@
 </div>
 
 <script>
-const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+const API_URL = 'https://corsproxy.io/?https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
 const REFRESH_INTERVAL = 30000;
 
 let allData = [];
@@ -138,4 +138,56 @@ function predictAndRecord(targetBetNo) {
 function checkPredictionResult(latestData) {
     historyPredictions.forEach(item => {
         if (item.result === '待开奖' && item.targetBetNo === latestData.betNo) {
-            const actualNumbers = latestData.openNumber
+            const actualNumbers = latestData.openNumber.split(',').map(n => parseInt(n));
+            item.result = actualNumbers.includes(item.predictedNumber) ? '命中' : '未中';
+        }
+    });
+    updatePredictionHistory();
+}
+
+function updatePredictionHistory() {
+    const historyList = document.getElementById('prediction-history');
+    historyList.innerHTML = '';
+    historyPredictions.forEach(item => {
+        const li = document.createElement('li');
+        li.className = `list-group-item d-flex justify-content-between align-items-center ${item.result === '命中' ? 'list-group-item-success' : item.result === '未中' ? 'list-group-item-danger' : 'list-group-item-secondary'}`;
+        li.innerHTML = `
+            预测期号：${item.targetBetNo} - 数字 ${item.predictedNumber} (命中率 ${item.predictedAccuracy}%)
+            <span class="badge bg-${item.result === '命中' ? 'success' : item.result === '未中' ? 'danger' : 'secondary'}">${item.result}</span>
+        `;
+        historyList.appendChild(li);
+    });
+}
+
+function simulatedAnnealing(counts) {
+    let current = Math.floor(Math.random() * 10);
+    let score = counts[current];
+    let temp = 100, cooling = 0.95, minTemp = 0.1;
+
+    function neighbor(sol) {
+        let n;
+        do { n = Math.floor(Math.random() * 10); } while (n === sol);
+        return n;
+    }
+
+    while (temp > minTemp) {
+        const next = neighbor(current);
+        const delta = counts[next] - score;
+        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+            current = next;
+            score = counts[next];
+        }
+        temp *= cooling;
+    }
+    return current;
+}
+
+function getNextBetNo(currentBetNo) {
+    return (BigInt(currentBetNo) + 1n).toString();
+}
+
+fetchLotteryData();
+setInterval(fetchLotteryData, REFRESH_INTERVAL);
+</script>
+</body>
+</html>
