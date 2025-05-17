@@ -1,114 +1,118 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>波场极速彩 - 智能预测看板</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial; margin: 0; background: #f8f8f8; }
-    .box { background: #fff; padding: 20px; margin: 20px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-    .success { background: #dff0d8; color: #3c763d; padding: 10px; margin-bottom: 15px; }
-    .predict-box { background: #d9f7fc; padding: 20px; border-radius: 4px; }
-    .highlight { color: #d00; font-weight: bold; }
-    .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    .table th, .table td { padding: 8px; border: 1px solid #ccc; text-align: center; }
-    .hit { color: green; }
-    .miss { color: red; }
-  </style>
+    <meta charset="UTF-8">
+    <title>波场极速彩 - 智能预测看板</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-  <div class="box">
-    <div class="success" id="status">数据更新成功</div>
-    <div class="predict-box">
-      <p><strong>预测数字：</strong><span id="predict-number">-</span></p>
-      <p><strong>命中率估算：</strong><span id="accuracy">--%</span></p>
-      <p><strong>使用模型：</strong><span id="model-type">--</span></p>
-      <p><strong>分析说明：</strong><span id="analysis">--</span></p>
+<body class="bg-light">
+    <div class="container py-4">
+        <h2 class="mb-4">波场极速彩 - 智能预测看板</h2>
+
+        <div id="latest-time" class="mb-3 text-muted">最后开奖时间：</div>
+
+        <div class="alert alert-success" role="alert">数据更新成功</div>
+
+        <div class="p-3 mb-4 bg-info text-dark rounded">
+            <p><strong>预测数字：</strong><span id="predicted-number">-</span></p>
+            <p><strong>命中率估算：</strong><span id="prediction-accuracy">--%</span></p>
+            <p><strong>使用模型：</strong><span id="model-used">--</span></p>
+            <p><strong>分析说明：</strong><span id="analysis-reason">--</span></p>
+        </div>
+
+        <h4>预测命中记录</h4>
+        <ul id="prediction-history" class="list-group mb-4"></ul>
+
+        <h4>开奖记录</h4>
+        <table class="table table-striped">
+            <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
+            <tbody id="history-body"></tbody>
+        </table>
     </div>
-    <p>最后开奖时间：<span id="last-time">--</span></p>
-  </div>
 
-  <div class="box">
-    <h3>预测命中记录</h3>
-    <ul id="history"></ul>
-  </div>
+    <script>
+    const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+    const REFRESH_INTERVAL = 3000;
+    let predictionHistory = [];
 
-  <div class="box">
-    <h3>开奖记录</h3>
-    <table class="table" id="result-table">
-      <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    async function fetchLotteryData() {{
+        try {{
+            const res = await fetch(API_URL);
+            const {{ data }} = await res.json();
+            if (!data || !Array.isArray(data)) return;
 
-  <script>
-    const API = 'https://corsproxy.io/?https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
-    const INTERVAL = 3000;
-    let history = [];
+            document.getElementById("latest-time").innerText = "最后开奖时间：" + data[0].openTime;
 
-    function predictSmart(data) {
-      const counts = {};
-      data.forEach(d => d.openNumber.split(',').forEach(n => counts[n] = (counts[n] || 0) + 1));
-      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-      const top = sorted.slice(0, 3).map(i => i[0]);
-      return {
-        number: top[0],
-        model: "概率加权模型",
-        analysis: "频率模型得分更稳定"
-      };
-    }
+            const freqMap = Array(10).fill(0);
+            data.forEach(item => {{
+                item.openNumber.split(',').forEach(num => {{
+                    freqMap[parseInt(num)]++;
+                }});
+            }});
 
-    async function load() {
-      try {
-        const res = await fetch(API);
-        const json = await res.json();
-        const list = json.data;
-        const now = new Date();
-        const last = list[0];
-        document.getElementById('last-time').textContent = last.openTime;
+            const bestByFreq = freqMap.indexOf(Math.max(...freqMap));
+            const model = '概率加权模型';
+            const predicted = bestByFreq;
+            const explanation = '频率模型得分更稳定';
 
-        // 填表格
-        const tbody = document.querySelector("#result-table tbody");
+            const hitRate = getHitRate();
+            updatePredictionDisplay(predicted, model, hitRate, explanation);
+            compareWithLatest(data[0], predicted);
+            renderHistoryTable(data);
+        }} catch (e) {{
+            console.error('接口请求失败', e);
+        }}
+    }}
+
+    function updatePredictionDisplay(num, model, rate, reason) {{
+        document.getElementById('predicted-number').innerText = num;
+        document.getElementById('model-used').innerText = model;
+        document.getElementById('prediction-accuracy').innerText = rate.toFixed(2) + "%";
+        document.getElementById('analysis-reason').innerText = reason;
+    }}
+
+    function compareWithLatest(latestDraw, predictedNum) {{
+        const numbers = latestDraw.openNumber.split(',').map(Number);
+        const hit = numbers.includes(predictedNum);
+        predictionHistory.unshift({{
+            betNo: latestDraw.expect,
+            number: predictedNum,
+            hit,
+        }});
+        if (predictionHistory.length > 20) predictionHistory.pop();
+        renderPredictionHistory();
+    }}
+
+    function renderPredictionHistory() {{
+        const container = document.getElementById('prediction-history');
+        container.innerHTML = '';
+        predictionHistory.forEach(function(item) {{
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.innerHTML = '预测期号 ' + item.betNo + ' - 数字 ' + item.number + ' - <span class="fw-bold text-' + (item.hit ? 'success' : 'danger') + '">' + (item.hit ? '命中' : '未中') + '</span>';
+            container.appendChild(li);
+        }});
+    }}
+
+    function renderHistoryTable(data) {{
+        const tbody = document.getElementById("history-body");
         tbody.innerHTML = '';
-        list.forEach(item => {
-          const tr = `<tr><td>${item.betNo}</td><td>${item.openNumber}</td><td>${item.openTime}</td></tr>`;
-          tbody.innerHTML += tr;
-        });
+        data.forEach(item => {{
+            const row = document.createElement('tr');
+            row.innerHTML = "<td>" + item.expect + "</td><td>" + item.openNumber + "</td><td>" + item.openTime + "</td>";
+            tbody.appendChild(row);
+        }});
+    }}
 
-        // 预测
-        const predict = predictSmart(list);
-        document.getElementById('predict-number').textContent = predict.number;
-        document.getElementById('model-type').textContent = predict.model;
-        document.getElementById('analysis').textContent = predict.analysis;
+    function getHitRate() {{
+        const total = predictionHistory.length || 1;
+        const hits = predictionHistory.filter(item => item.hit).length;
+        return (hits / total) * 100;
+    }}
 
-        // 命中统计
-        const lastDraw = list[0];
-        const lastNumbers = lastDraw.openNumber.split(',');
-        const isHit = lastNumbers.includes(predict.number);
-        history.unshift({
-          number: predict.number,
-          betNo: lastDraw.betNo,
-          hit: isHit
-        });
-        if (history.length > 20) history.pop();
-
-        const acc = (history.filter(i => i.hit).length / history.length * 100).toFixed(2);
-        document.getElementById('accuracy').textContent = acc + '%';
-
-        const ul = document.getElementById('history');
-        ul.innerHTML = '';
-        history.forEach(item => {
-          const li = document.createElement('li');
-          li.innerHTML = `预测期号 ${item.betNo} - 数字 ${item.number} - <span class="${item.hit ? 'hit' : 'miss'}">${item.hit ? '命中' : '未中'}</span>`;
-          ul.appendChild(li);
-        });
-      } catch (e) {
-        document.getElementById('status').textContent = '更新失败，请稍后重试';
-      }
-    }
-
-    load();
-    setInterval(load, INTERVAL);
-  </script>
+    fetchLotteryData();
+    setInterval(fetchLotteryData, REFRESH_INTERVAL);
+    </script>
 </body>
 </html>
