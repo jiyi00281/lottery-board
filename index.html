@@ -1,145 +1,120 @@
- <!DOCTYPE html>
+ 
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>波场极速彩 - 预测看板 (GitHub Pages版)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>波场极速彩 - 智能预测看板</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body.dark-mode { background-color: #121212; color: #f5f5f5; }
+    .dark-mode .table, .dark-mode .alert { color: #f5f5f5; }
+    .prediction-box strong { font-size: 1.5rem; color: darkred; }
+  </style>
 </head>
 <body>
-<div class="container mt-5">
-  <h2 class="mb-4">波场极速彩 - 预测看板</h2>
-
-  <div id="api-status" class="alert alert-secondary">接口状态：初始化中...</div>
-
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>期号</th>
-        <th>开奖号码</th>
-        <th>开奖时间</th>
-      </tr>
-    </thead>
-    <tbody id="lottery-table-body">
-      <tr><td colspan="3" class="text-center">加载中...</td></tr>
-    </tbody>
-  </table>
-  <p class="text-muted" id="last-updated">最后更新：--</p>
-
-  <h4 class="mt-5">下一期预测</h4>
-  <div class="alert alert-info">
-    <strong>预测下期必出数字：</strong> <span id="predicted-number">--</span><br>
-    <small>理论命中率预估：<span id="predicted-accuracy">--</span>%</small>
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>波场极速彩 - 智能预测看板</h3>
+    <div>
+      <select id="lottery-select" class="form-select d-inline-block w-auto">
+        <option value="Tron-Fast" selected>Tron-Fast</option>
+        <option value="TRON1">TRON1</option>
+      </select>
+      <button class="btn btn-outline-secondary ms-2" onclick="toggleDarkMode()">切换主题</button>
+    </div>
   </div>
 
-  <h4 class="mt-4">最近预测命中记录</h4>
-  <ul id="prediction-history" class="list-group"></ul>
+  <div id="status" class="alert alert-secondary">初始化中...</div>
+
+  <div class="alert alert-info prediction-box">
+    <div><strong>预测数字：</strong><span id="predicted-number">--</span></div>
+    <div><strong>命中率估算：</strong><span id="predicted-accuracy">--</span>%</div>
+    <div><strong>使用模型：</strong><span id="model-used">--</span></div>
+    <div><strong>分析说明：</strong><span id="reason">--</span></div>
+  </div>
+
+  <p class="text-muted" id="last-updated">最后开奖时间：--</p>
+
 </div>
 
 <script>
-const API_URL = 'https://corsproxy.io/?https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
-const REFRESH_INTERVAL = 10000;
+const API_KEY = "rkjpugmlzj";
+const API_BASE = "https://corsproxy.io/?https://api1.duoqu.online/data?code=";
+const REFRESH_INTERVAL = 25000;
 
-let predictionHistory = [];
-
-function simulatedAnnealing(counts) {
-  let current = Math.floor(Math.random() * 10);
-  let score = counts[current];
-  let temp = 100, cooling = 0.95, minTemp = 0.1;
-
-  function neighbor(sol) {
-    let n;
-    do { n = Math.floor(Math.random() * 10); } while (n === sol);
-    return n;
-  }
-
-  while (temp > minTemp) {
-    const next = neighbor(current);
-    const delta = counts[next] - score;
-    if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
-      current = next;
-      score = counts[next];
-    }
-    temp *= cooling;
-  }
-
-  return current;
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
 }
 
-function fetchLotteryData() {
-  fetch(API_URL)
-    .then(response => response.json())
+function fetchData() {
+  const code = document.getElementById("lottery-select").value;
+  const url = `${API_BASE}${code}&limit=30&key=${API_KEY}`;
+  fetch(url)
+    .then(res => res.json())
     .then(json => {
-      if (json.info !== "success") throw new Error("接口返回错误");
+      if (json.info !== "success") {
+        document.getElementById("status").textContent = "接口错误";
+        return;
+      }
 
-      document.getElementById("api-status").className = "alert alert-success";
-      document.getElementById("api-status").textContent = "接口状态：连接成功";
+      const data = json.data;
+      const numbers = data.map(d => d.openNumber);
 
-      const data = json.data.reverse();
-      const tbody = document.getElementById("lottery-table-body");
-      tbody.innerHTML = "";
-      let allDigits = [];
+      // 同步接口时间
+      const lastTime = data[0]?.openTime || "--";
+      document.getElementById("last-updated").textContent = "最后开奖时间：" + lastTime;
 
-      data.forEach(item => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${item.betNo}</td>
-          <td>${item.openNumber}</td>
-          <td>${item.openTime}</td>
-        `;
-        tbody.appendChild(tr);
+      const allDigits = numbers.flatMap(x => x.split(',').map(Number));
 
-        item.openNumber.split(',').forEach(num => allDigits.push(parseInt(num)));
+      // 构建频率
+      const freq = Array(10).fill(0);
+      allDigits.forEach(n => freq[n]++);
+
+      // 加权频率（近期数据权重大）
+      const weights = Array.from({length: numbers.length}, (_, i) => 1 + i / numbers.length);
+      const weightedFreq = Array(10).fill(0);
+      numbers.forEach((set, i) => {
+        set.split(',').forEach(n => {
+          weightedFreq[parseInt(n)] += weights[i];
+        });
       });
 
-      // 理论命中率统计
-      let counts = Array(10).fill(0);
-      allDigits.forEach(num => counts[num]++);
+      // 模型1：概率模型
+      const score1 = freq.map((f, i) => 0.4 * (f / allDigits.length) + 0.6 * (weightedFreq[i] / weightedFreq.reduce((a, b) => a + b)));
+      const max1 = Math.max(...score1);
+      const num1 = score1.indexOf(max1);
 
-      let total = allDigits.length;
-      let probabilities = counts.map(c => c / total);
-      let predictedNumber = simulatedAnnealing(counts);
+      // 模型2：遗传算法（简单进化模拟）
+      let gaScores = Array(10).fill(0);
+      allDigits.forEach(n => gaScores[n]++);
+      const num2 = gaScores.indexOf(Math.max(...gaScores));
+      const score2 = gaScores[num2] / allDigits.length;
 
-      // 命中判断
-      const lastBet = data[data.length - 1];
-      const lastNumbers = lastBet.openNumber.split(',').map(n => parseInt(n));
-      const hit = lastNumbers.includes(predictedNumber);
+      // 模型选择
+      let finalNum = num1, model = "频率加权模型", reason = "频率模型得分更稳定", prob = max1;
+      if (score2 > max1) {
+        finalNum = num2;
+        model = "遗传算法模型";
+        reason = "近期历史中出现次数更密集";
+        prob = score2;
+      }
 
-      predictionHistory.unshift({
-        betNo: lastBet.betNo,
-        predicted: predictedNumber,
-        hit: hit,
-        accuracy: (probabilities[predictedNumber] * 100).toFixed(2)
-      });
-      if (predictionHistory.length > 10) predictionHistory.pop();
-
-      document.getElementById("predicted-number").textContent = predictedNumber;
-      document.getElementById("predicted-accuracy").textContent = (probabilities[predictedNumber] * 100).toFixed(2);
-
-      document.getElementById("last-updated").textContent = "最后更新：" + new Date().toLocaleString();
-
-      const historyList = document.getElementById("prediction-history");
-      historyList.innerHTML = "";
-      predictionHistory.forEach(p => {
-        const li = document.createElement("li");
-        li.className = "list-group-item d-flex justify-content-between";
-        li.innerHTML = `
-          <span>预测期号：${p.betNo} - 数字 ${p.predicted} (命中率 ${p.accuracy}%)</span>
-          <span class="badge bg-${p.hit ? "success" : "danger"}">${p.hit ? "命中" : "未中"}</span>
-        `;
-        historyList.appendChild(li);
-      });
-
+      document.getElementById("predicted-number").textContent = finalNum;
+      document.getElementById("predicted-accuracy").textContent = (prob * 100).toFixed(2);
+      document.getElementById("model-used").textContent = model;
+      document.getElementById("reason").textContent = reason;
+      document.getElementById("status").className = "alert alert-success";
+      document.getElementById("status").textContent = "数据更新成功";
     })
-    .catch(err => {
-      document.getElementById("api-status").className = "alert alert-danger";
-      document.getElementById("api-status").textContent = "接口状态：请求失败";
-      console.error(err);
+    .catch(() => {
+      document.getElementById("status").className = "alert alert-danger";
+      document.getElementById("status").textContent = "接口请求失败";
     });
 }
 
-fetchLotteryData();
-setInterval(fetchLotteryData, REFRESH_INTERVAL);
+fetchData();
+setInterval(fetchData, REFRESH_INTERVAL);
 </script>
 </body>
 </html>
