@@ -1,189 +1,141 @@
  <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>波场极速彩 - 预测看板</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <title>波场极速彩 - 预测看板 (GitHub Pages版)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 <div class="container mt-5">
-    <h2 class="mb-4">波场极速彩 - 预测看板</h2>
+  <h2 class="mb-4">波场极速彩 - 预测看板</h2>
 
-    <div id="api-status" class="alert alert-secondary">接口状态：初始化中...</div>
+  <div id="api-status" class="alert alert-secondary">接口状态：初始化中...</div>
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>期号</th>
-                <th>开奖号码</th>
-                <th>开奖时间</th>
-            </tr>
-        </thead>
-        <tbody id="lottery-table-body">
-            <tr><td colspan="3" class="text-center">加载中...</td></tr>
-        </tbody>
-    </table>
-    <p class="text-muted" id="last-updated">最后更新：--</p>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>期号</th>
+        <th>开奖号码</th>
+        <th>开奖时间</th>
+      </tr>
+    </thead>
+    <tbody id="lottery-table-body">
+      <tr><td colspan="3" class="text-center">加载中...</td></tr>
+    </tbody>
+  </table>
+  <p class="text-muted" id="last-updated">最后更新：--</p>
 
-    <h4 class="mt-5">下一期预测</h4>
-    <div class="alert alert-info">
-        <strong>预测下期必出数字：</strong> <span id="predicted-number">--</span><br>
-        <small>理论命中率预估：<span id="predicted-accuracy">--</span>%</small>
-    </div>
+  <h4 class="mt-5">下一期预测</h4>
+  <div class="alert alert-info">
+    <strong>预测下期必出数字：</strong> <span id="predicted-number">--</span><br>
+    <small>理论命中率预估：<span id="predicted-accuracy">--</span>%</small>
+  </div>
 
-    <h4 class="mt-4">最近预测命中记录</h4>
-    <ul id="prediction-history" class="list-group"></ul>
+  <h4 class="mt-4">最近预测命中记录</h4>
+  <ul id="prediction-history" class="list-group"></ul>
 </div>
 
 <script>
 const API_URL = 'https://corsproxy.io/?https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
 const REFRESH_INTERVAL = 30000;
 
-let allData = [];
-let historyPredictions = [];
-
-async function fetchLotteryData() {
-    try {
-        const response = await fetch(API_URL);
-        const result = await response.json();
-
-        if (result.info === 'success' && result.data.length > 0) {
-            updateApiStatus('数据采集成功', 'success');
-
-            const existingBetNos = new Set(allData.map(item => item.betNo));
-            result.data.forEach(item => {
-                if (!existingBetNos.has(item.betNo)) {
-                    allData.push(item);
-                }
-            });
-
-            updateTable();
-            checkPredictionResult(result.data[0]);
-
-            const predictedBetNos = new Set(historyPredictions.map(p => p.targetBetNo));
-            allData.forEach(item => {
-                const nextBetNo = getNextBetNo(item.betNo);
-                if (!predictedBetNos.has(nextBetNo)) {
-                    predictAndRecord(nextBetNo);
-                }
-            });
-
-        } else {
-            updateApiStatus('接口异常或无数据返回', 'danger');
-        }
-    } catch (error) {
-        console.error('接口调用失败:', error);
-        updateApiStatus('接口请求失败', 'danger');
-    }
-}
-
-function updateApiStatus(message, type) {
-    const statusDiv = document.getElementById('api-status');
-    statusDiv.className = `alert alert-${type}`;
-    statusDiv.innerText = `接口状态：${message}`;
-}
-
-function updateTable() {
-    const tbody = document.getElementById('lottery-table-body');
-    tbody.innerHTML = '';
-
-    const sortedData = [...allData].sort((a, b) => BigInt(a.betNo) - BigInt(b.betNo));
-    const latest30 = sortedData.slice(-30);
-
-    latest30.forEach(item => {
-        const row = `
-            <tr>
-                <td>${item.betNo}</td>
-                <td>${item.openNumber}</td>
-                <td>${item.openTime}</td>
-            </tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
-    });
-
-    document.getElementById('last-updated').innerText = '最后更新：' + new Date().toLocaleString();
-}
-
-function predictAndRecord(targetBetNo) {
-    const counts = Array(10).fill(0);
-    const totalNumbers = allData.length * 5;
-
-    allData.forEach(item => {
-        item.openNumber.split(',').forEach(n => counts[parseInt(n)]++);
-    });
-
-    const probabilities = counts.map(c => c / totalNumbers);
-    const hitRates = probabilities.map(p => (1 - Math.pow(1 - p, 5)) * 100);
-
-    const predicted = simulatedAnnealing(counts);
-    const predictedAccuracy = hitRates[predicted].toFixed(2);
-
-    if (targetBetNo === getNextBetNo(allData[0].betNo)) {
-        document.getElementById('predicted-number').innerText = predicted;
-        document.getElementById('predicted-accuracy').innerText = predictedAccuracy;
-    }
-
-    historyPredictions.unshift({
-        predictedNumber: predicted,
-        predictedAccuracy: predictedAccuracy,
-        targetBetNo: targetBetNo,
-        result: '待开奖'
-    });
-
-    if (historyPredictions.length > 10) historyPredictions.pop();
-
-    updatePredictionHistory();
-}
-
-function checkPredictionResult(latestData) {
-    historyPredictions.forEach(item => {
-        if (item.result === '待开奖' && item.targetBetNo === latestData.betNo) {
-            const actualNumbers = latestData.openNumber.split(',').map(n => parseInt(n));
-            item.result = actualNumbers.includes(item.predictedNumber) ? '命中' : '未中';
-        }
-    });
-    updatePredictionHistory();
-}
-
-function updatePredictionHistory() {
-    const historyList = document.getElementById('prediction-history');
-    historyList.innerHTML = '';
-    historyPredictions.forEach(item => {
-        const li = document.createElement('li');
-        li.className = `list-group-item d-flex justify-content-between align-items-center ${item.result === '命中' ? 'list-group-item-success' : item.result === '未中' ? 'list-group-item-danger' : 'list-group-item-secondary'}`;
-        li.innerHTML = `
-            预测期号：${item.targetBetNo} - 数字 ${item.predictedNumber} (命中率 ${item.predictedAccuracy}%)
-            <span class="badge bg-${item.result === '命中' ? 'success' : item.result === '未中' ? 'danger' : 'secondary'}">${item.result}</span>
-        `;
-        historyList.appendChild(li);
-    });
-}
+let predictionHistory = [];
 
 function simulatedAnnealing(counts) {
-    let current = Math.floor(Math.random() * 10);
-    let score = counts[current];
-    let temp = 100, cooling = 0.95, minTemp = 0.1;
+  let current = Math.floor(Math.random() * 10);
+  let score = counts[current];
+  let temp = 100, cooling = 0.95, minTemp = 0.1;
 
-    function neighbor(sol) {
-        let n;
-        do { n = Math.floor(Math.random() * 10); } while (n === sol);
-        return n;
-    }
+  function neighbor(sol) {
+    let n;
+    do { n = Math.floor(Math.random() * 10); } while (n === sol);
+    return n;
+  }
 
-    while (temp > minTemp) {
-        const next = neighbor(current);
-        const delta = counts[next] - score;
-        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
-            current = next;
-            score = counts[next];
-        }
-        temp *= cooling;
+  while (temp > minTemp) {
+    const next = neighbor(current);
+    const delta = counts[next] - score;
+    if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+      current = next;
+      score = counts[next];
     }
-    return current;
+    temp *= cooling;
+  }
+
+  return current;
 }
 
-function getNextBetNo(currentBetNo) {
-    return (BigInt(currentBetNo) + 1n).toString();
+function fetchLotteryData() {
+  fetch(API_URL)
+    .then(response => response.json())
+    .then(json => {
+      if (json.info !== "success") throw new Error("接口返回错误");
+
+      document.getElementById("api-status").className = "alert alert-success";
+      document.getElementById("api-status").textContent = "接口状态：连接成功";
+
+      const data = json.data.reverse();
+      const tbody = document.getElementById("lottery-table-body");
+      tbody.innerHTML = "";
+      let allDigits = [];
+
+      data.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.betNo}</td>
+          <td>${item.openNumber}</td>
+          <td>${item.openTime}</td>
+        `;
+        tbody.appendChild(tr);
+
+        item.openNumber.split(',').forEach(num => allDigits.push(parseInt(num)));
+      });
+
+      // 理论命中率统计
+      let counts = Array(10).fill(0);
+      allDigits.forEach(num => counts[num]++);
+
+      let total = allDigits.length;
+      let probabilities = counts.map(c => c / total);
+      let predictedNumber = simulatedAnnealing(counts);
+
+      // 命中判断
+      const lastBet = data[data.length - 1];
+      const lastNumbers = lastBet.openNumber.split(',').map(n => parseInt(n));
+      const hit = lastNumbers.includes(predictedNumber);
+
+      predictionHistory.unshift({
+        betNo: lastBet.betNo,
+        predicted: predictedNumber,
+        hit: hit,
+        accuracy: (probabilities[predictedNumber] * 100).toFixed(2)
+      });
+      if (predictionHistory.length > 10) predictionHistory.pop();
+
+      document.getElementById("predicted-number").textContent = predictedNumber;
+      document.getElementById("predicted-accuracy").textContent = (probabilities[predictedNumber] * 100).toFixed(2);
+
+      document.getElementById("last-updated").textContent = "最后更新：" + new Date().toLocaleString();
+
+      const historyList = document.getElementById("prediction-history");
+      historyList.innerHTML = "";
+      predictionHistory.forEach(p => {
+        const li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between";
+        li.innerHTML = `
+          <span>预测期号：${p.betNo} - 数字 ${p.predicted} (命中率 ${p.accuracy}%)</span>
+          <span class="badge bg-${p.hit ? "success" : "danger"}">${p.hit ? "命中" : "未中"}</span>
+        `;
+        historyList.appendChild(li);
+      });
+
+    })
+    .catch(err => {
+      document.getElementById("api-status").className = "alert alert-danger";
+      document.getElementById("api-status").textContent = "接口状态：请求失败";
+      console.error(err);
+    });
 }
 
 fetchLotteryData();
