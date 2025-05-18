@@ -2,94 +2,92 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>波场极速彩 - 路数热度统计</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>波场极速彩 - 路数热度趋势分析</title>
   <style>
-    body { background: #f8f8f8; padding: 20px; }
-    .box { background: white; padding: 20px; border-radius: 8px; }
-    .small-title { font-weight: bold; margin-top: 20px; }
-    ul { padding-left: 20px; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f8f8; }
+    .card { background: white; padding: 16px; margin: 10px 0; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .highlight { color: #d9534f; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h4 class="mb-3">波场极速彩 - 最近三期路数标准化热度统计</h4>
-  <div id="status" class="alert alert-info">数据加载中...</div>
+  <h2>波场极速彩 - 最近五期路数热度趋势分析</h2>
 
-  <div class="box mt-3">
-    <div class="small-title">最近三期开奖详情</div>
-    <ul id="records"></ul>
-
-    <div id="summary" class="fw-bold mt-3">-</div>
-    <ul id="stats" class="mt-2"></ul>
-  </div>
+  <div id="trend" class="card">加载中...</div>
+  <div id="vote" class="card"></div>
 
   <script>
-    const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=3&key=rkjpugmlzj";
+    // 模拟最近5期开奖号码（真实使用可替换为接口返回数据）
+    const last5 = [
+      "1,4,7,6,3",  // 期1
+      "0,3,5,7,8",  // 期2
+      "1,2,6,4,7",  // 期3
+      "3,1,2,4,6",  // 期4
+      "4,5,7,1,9"   // 期5
+    ];
 
-    const routeGroups = {
+    // 路数分组
+    const groups = {
       0: [0, 3, 6, 9],
       1: [1, 4, 7],
       2: [2, 5, 8]
     };
 
-    function fetchAndUpdate() {
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(json => {
-          if (!json.data || json.data.length === 0) throw new Error("无数据");
+    // 初始化路数统计
+    const routeTrend = { 0: [], 1: [], 2: [] };
 
-          document.getElementById('status').className = "alert alert-success";
-          document.getElementById('status').textContent = "数据加载成功：" + new Date().toLocaleTimeString();
+    last5.forEach(draw => {
+      const nums = draw.split(',').map(Number);
+      const count = { 0: 0, 1: 0, 2: 0 };
+      nums.forEach(n => {
+        if (groups[0].includes(n)) count[0]++;
+        else if (groups[1].includes(n)) count[1]++;
+        else count[2]++;
+      });
+      routeTrend[0].push(count[0]);
+      routeTrend[1].push(count[1]);
+      routeTrend[2].push(count[2]);
+    });
 
-          const recordsEl = document.getElementById("records");
-          const statsEl = document.getElementById("stats");
-          const summaryEl = document.getElementById("summary");
-          recordsEl.innerHTML = '';
-          statsEl.innerHTML = '';
-          summaryEl.innerHTML = '';
-
-          const routeCounts = { 0: 0, 1: 0, 2: 0 };
-          const baseCounts = { 0: 4, 1: 3, 2: 3 };
-
-          const numbers = [];
-
-          json.data.forEach(item => {
-            const nums = item.openNumber.split(',').map(n => parseInt(n));
-            numbers.push(nums);
-            recordsEl.innerHTML += `<li>${item.betNo} - ${item.openTime} 开奖号码：<strong>${item.openNumber}</strong></li>`;
-          });
-
-          numbers.flat().forEach(num => {
-            if (routeGroups[0].includes(num)) routeCounts[0]++;
-            if (routeGroups[1].includes(num)) routeCounts[1]++;
-            if (routeGroups[2].includes(num)) routeCounts[2]++;
-          });
-
-          let maxHot = -Infinity;
-          let hottestRoute = '';
-
-          for (const [key, count] of Object.entries(routeCounts)) {
-            const normalized = (count / baseCounts[key]) * 100;
-            if (normalized > maxHot) {
-              maxHot = normalized;
-              hottestRoute = key;
-            }
-            statsEl.innerHTML += `<li>${key}路（${routeGroups[key].join('')}）：出现 ${count} 次，标准化热度 ${normalized.toFixed(2)}%</li>`;
-          }
-
-          summaryEl.textContent = `最近三期开奖号标准化路数热度分析：最热为 ${hottestRoute} 路（热度 ${maxHot.toFixed(2)}%）`;
-        })
-        .catch(err => {
-          document.getElementById('status').className = "alert alert-danger";
-          document.getElementById('status').textContent = "数据获取失败：" + err.message;
-        });
+    function detectTrend(arr) {
+      const d1 = arr[1] - arr[0];
+      const d2 = arr[2] - arr[1];
+      const d3 = arr[3] - arr[2];
+      const d4 = arr[4] - arr[3];
+      const sum = d1 + d2 + d3 + d4;
+      if (sum > 0 && d4 > 0) return '升温趋势（持续上扬）';
+      if (sum < 0 && d4 < 0) return '降温趋势';
+      return '无明显趋势';
     }
 
-    // 首次执行
-    fetchAndUpdate();
-    // 每3秒刷新一次
-    setInterval(fetchAndUpdate, 3000);
+    const trendDiv = document.getElementById("trend");
+    let hotRoute = 1; // 默认
+    let html = "<h3>近5期：</h3><ul>";
+    const routeWeights = {};
+
+    for (let r = 0; r <= 2; r++) {
+      const label = r + "路（" + groups[r].join("") + "）";
+      const values = routeTrend[r];
+      const trend = detectTrend(values);
+      if (trend.includes("升温")) hotRoute = r;
+      html += `<li>${label} 出现次数： [${values.join(", ")}] → <span class="highlight">${trend}</span></li>`;
+      routeWeights[r] = trend.includes("升温") ? 1.5 : (trend.includes("降温") ? 0.8 : 1);
+    }
+    html += `</ul><p>当前可以重点参考：<strong>${hotRoute}路</strong></p>`;
+    trendDiv.innerHTML = html;
+
+    // 投票打分模型
+    const voteScore = {};
+    for (let n = 0; n <= 9; n++) {
+      let r = groups[0].includes(n) ? 0 : (groups[1].includes(n) ? 1 : 2);
+      voteScore[n] = routeWeights[r];
+    }
+
+    // 输出投票排序
+    const sorted = Object.entries(voteScore).sort((a, b) => b[1] - a[1]);
+    const voteDiv = document.getElementById("vote");
+    voteDiv.innerHTML = `<h3>热度加权投票推荐</h3><ul>` + sorted.map(
+      ([num, score]) => `<li>数字 ${num} - 得分：${score.toFixed(2)}</li>`
+    ).join('') + `</ul>`;
   </script>
 </body>
 </html>
