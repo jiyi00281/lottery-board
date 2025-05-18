@@ -2,18 +2,17 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>波场极速彩 - 热路融合预测系统</title>
+  <title>波场极速彩 - 马尔可夫/退火/热路融合预测</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h3>波场极速彩 - 热路融合预测系统</h3>
-    <div id="status" class="alert alert-info">初始化中...</div>
+    <h3>波场极速彩 - 马尔可夫/退火/热路融合预测</h3>
+    <div class="alert alert-info" id="status">初始化中...</div>
 
     <div class="bg-warning p-3 rounded mb-4">
       <p><strong>预测下期号码：</strong> <span id="predict-number">--</span></p>
-      <p><strong>命中率估算：</strong> <span id="accuracy">--%</span></p>
       <p><strong>使用模型：</strong> <span id="model-used">--</span></p>
       <p><strong>预测分析：</strong> <span id="reason">--</span></p>
     </div>
@@ -28,128 +27,134 @@
     </table>
   </div>
 
-  <script>
-    const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj";
-    let lastBetNo = null;
-    let history = [];
+<script>
+const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj";
+let lastBetNo = null;
+let history = [];
 
-    const ROUTE_MAP = {
-      0: [0, 3, 6, 9],
-      1: [1, 4, 7],
-      2: [2, 5, 8]
-    };
+const ROUTE_MAP = {
+  0: [0, 3, 6, 9],
+  1: [1, 4, 7],
+  2: [2, 5, 8]
+};
 
-    function parseNumbers(data) {
-      return data.map(d => d.openNumber.split(',').map(n => parseInt(n)));
-    }
+function parseNumbers(data) {
+  return data.map(d => d.openNumber.split(',').map(n => parseInt(n)));
+}
 
-    function frequencyModel(numbers) {
-      const freq = Array(10).fill(0);
-      numbers.flat().forEach(n => freq[n]++);
-      return freq.indexOf(Math.max(...freq));
-    }
+function annealingModel(numbers) {
+  const freq = Array(10).fill(0);
+  numbers.flat().forEach(n => freq[n]++);
+  let current = Math.floor(Math.random() * 10);
+  let temp = 50;
+  for (let i = 0; i < 100; i++) {
+    const next = Math.floor(Math.random() * 10);
+    const delta = freq[next] - freq[current];
+    if (delta > 0 || Math.exp(delta / temp) > Math.random()) current = next;
+    temp *= 0.95;
+  }
+  return current;
+}
 
-    function routeModel(numbers) {
-      const routeCount = [0, 0, 0];
-      numbers.flat().forEach(n => routeCount[n % 3]++);
-      const hotRoute = routeCount.indexOf(Math.max(...routeCount));
-      const candidates = ROUTE_MAP[hotRoute];
-      const freq = Array(10).fill(0);
-      numbers.flat().forEach(n => freq[n]++);
-      const ranked = candidates.map(n => ({ n, count: freq[n] })).sort((a, b) => b.count - a.count);
-      return ranked[0].n;
-    }
+function routeModel(numbers) {
+  const routeCount = [0, 0, 0];
+  numbers.flat().forEach(n => routeCount[n % 3]++);
+  const normalized = [routeCount[0]/4, routeCount[1]/3, routeCount[2]/3];
+  const hotRoute = normalized.indexOf(Math.max(...normalized));
+  const freq = Array(10).fill(0);
+  numbers.flat().forEach(n => freq[n]++);
+  const ranked = ROUTE_MAP[hotRoute].map(n => ({ n, count: freq[n] }))
+    .sort((a, b) => b.count - a.count);
+  return ranked[0].n;
+}
 
-    function annealingModel(numbers) {
-      const freq = Array(10).fill(0);
-      numbers.flat().forEach(n => freq[n]++);
-      let current = Math.floor(Math.random() * 10);
-      let temp = 50;
-      for (let i = 0; i < 100; i++) {
-        const next = Math.floor(Math.random() * 10);
-        const delta = freq[next] - freq[current];
-        if (delta > 0 || Math.exp(delta / temp) > Math.random()) current = next;
-        temp *= 0.95;
-      }
-      return current;
-    }
+function markovModel(numbers) {
+  const transition = Array.from({ length: 10 }, () => Array(10).fill(0));
+  const flat = numbers.flat();
+  for (let i = 0; i < flat.length - 1; i++) {
+    transition[flat[i]][flat[i+1]]++;
+  }
+  const last = flat[flat.length - 1];
+  const probs = transition[last];
+  const next = probs.indexOf(Math.max(...probs));
+  return next;
+}
 
-    function votePredict(numbers) {
-      const freq = frequencyModel(numbers);
-      const route = routeModel(numbers);
-      const anneal = annealingModel(numbers);
+function predictNumber(numbers) {
+  const a = annealingModel(numbers);
+  const r = routeModel(numbers);
+  const m = markovModel(numbers);
 
-      const votes = {};
-      [freq, route, anneal].forEach(n => votes[n] = (votes[n] || 0) + 1);
-      const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
-      return {
-        number: parseInt(sorted[0][0]),
-        reason: `模型投票：频率(${freq}) 热路(${route}) 退火(${anneal})`,
-        accuracy: 75,
-        model: "频率 + 热路 + 退火 投票融合"
-      };
-    }
+  const votes = {};
+  [a, r, m].forEach(n => votes[n] = (votes[n] || 0) + 1);
+  const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
 
-    function renderPrediction(pred) {
-      document.getElementById("predict-number").innerText = pred.number;
-      document.getElementById("accuracy").innerText = pred.accuracy + "%";
-      document.getElementById("model-used").innerText = pred.model;
-      document.getElementById("reason").innerText = pred.reason;
-    }
+  return {
+    number: parseInt(sorted[0][0]),
+    model: "马尔可夫 + 热路 + 退火投票融合",
+    reason: `模型票数：马尔可夫(${m}) 热路(${r}) 退火(${a})`
+  };
+}
 
-    function renderHistory() {
-      const ul = document.getElementById("history-list");
-      ul.innerHTML = "";
-      history.forEach(h => {
-        ul.innerHTML += `<li class="list-group-item">
-          预测期号 ${h.betNo} - 数字 ${h.number} - 
-          <span class="fw-bold text-${h.hit ? "success" : "danger"}">${h.hit ? "命中" : "未中"}</span>
-        </li>`;
+function renderPrediction(pred) {
+  document.getElementById("predict-number").innerText = pred.number;
+  document.getElementById("model-used").innerText = pred.model;
+  document.getElementById("reason").innerText = pred.reason;
+}
+
+function renderHistory() {
+  const ul = document.getElementById("history-list");
+  ul.innerHTML = "";
+  history.forEach(h => {
+    ul.innerHTML += `<li class="list-group-item">
+      预测期号 ${h.betNo} - 数字 ${h.number} - 
+      <span class="fw-bold text-${h.hit ? "success" : "danger"}">${h.hit ? "命中" : "未中"}</span>
+    </li>`;
+  });
+}
+
+function renderTable(data) {
+  const table = document.getElementById("lottery-table");
+  table.innerHTML = "";
+  data.forEach(d => {
+    table.innerHTML += `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
+  });
+}
+
+async function fetchData() {
+  try {
+    const res = await fetch(API_URL);
+    const json = await res.json();
+    const data = json.data;
+    if (!data) throw new Error("接口返回空");
+
+    document.getElementById("status").innerText = "数据更新成功";
+    renderTable(data);
+
+    const betNo = data[0].betNo;
+    if (betNo !== lastBetNo) {
+      lastBetNo = betNo;
+      const numbers = parseNumbers(data);
+      const pred = predictNumber(numbers);
+      const hit = data[0].openNumber.includes(pred.number.toString());
+
+      history.unshift({
+        betNo: betNo,
+        number: pred.number,
+        hit: hit
       });
+      if (history.length > 10) history.pop();
+
+      renderPrediction(pred);
+      renderHistory();
     }
+  } catch (e) {
+    document.getElementById("status").innerText = "接口错误：" + e.message;
+  }
+}
 
-    function renderTable(data) {
-      const table = document.getElementById("lottery-table");
-      table.innerHTML = "";
-      data.forEach(d => {
-        table.innerHTML += `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
-      });
-    }
-
-    async function fetchData() {
-      try {
-        const res = await fetch(API_URL);
-        const json = await res.json();
-        const data = json.data;
-        if (!data) throw new Error("无数据");
-
-        document.getElementById("status").innerText = "数据更新成功";
-        renderTable(data);
-
-        const betNo = data[0].betNo;
-        if (betNo !== lastBetNo) {
-          lastBetNo = betNo;
-          const numbers = parseNumbers(data);
-          const pred = votePredict(numbers);
-          const hit = data[0].openNumber.split(',').includes(pred.number.toString());
-
-          history.unshift({
-            betNo: betNo,
-            number: pred.number,
-            hit: hit
-          });
-          if (history.length > 10) history.pop();
-
-          renderPrediction(pred);
-          renderHistory();
-        }
-      } catch (err) {
-        document.getElementById("status").innerText = "接口错误：" + err.message;
-      }
-    }
-
-    fetchData();
-    setInterval(fetchData, 3000);
-  </script>
+fetchData();
+setInterval(fetchData, 3000);
+</script>
 </body>
 </html>
