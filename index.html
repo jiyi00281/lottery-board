@@ -1,118 +1,136 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>波场极速彩 - 智能预测看板</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>波场极速彩 - 智能预测看板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-    <div class="container py-4">
-        <h2 class="mb-4">波场极速彩 - 智能预测看板</h2>
+  <div class="container my-4">
+    <h3 class="mb-4">波场极速彩 - 智能预测看板</h3>
 
-        <div id="latest-time" class="mb-3 text-muted">最后开奖时间：</div>
+    <div id="update-status" class="alert alert-success">数据更新成功</div>
 
-        <div class="alert alert-success" role="alert">数据更新成功</div>
-
-        <div class="p-3 mb-4 bg-info text-dark rounded">
-            <p><strong>预测数字：</strong><span id="predicted-number">-</span></p>
-            <p><strong>命中率估算：</strong><span id="prediction-accuracy">--%</span></p>
-            <p><strong>使用模型：</strong><span id="model-used">--</span></p>
-            <p><strong>分析说明：</strong><span id="analysis-reason">--</span></p>
-        </div>
-
-        <h4>预测命中记录</h4>
-        <ul id="prediction-history" class="list-group mb-4"></ul>
-
-        <h4>开奖记录</h4>
-        <table class="table table-striped">
-            <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
-            <tbody id="history-body"></tbody>
-        </table>
+    <div class="p-3 bg-info text-white rounded mb-4">
+      <p><strong>预测数字：</strong> <span id="predicted-number">-</span></p>
+      <p><strong>命中率估算：</strong> <span id="predicted-accuracy">--</span>%</p>
+      <p><strong>使用模型：</strong> <span id="used-model">--</span></p>
+      <p><strong>分析说明：</strong> <span id="analysis-text">--</span></p>
     </div>
 
-    <script>
-    const API_URL = 'https://api1.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+    <p><strong>最后开奖时间：</strong> <span id="last-time">--</span></p>
+
+    <h5 class="mt-4">预测命中记录</h5>
+    <ul id="history" class="list-group mb-4"></ul>
+
+    <h5>开奖记录</h5>
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>期号</th>
+          <th>开奖号码</th>
+          <th>开奖时间</th>
+        </tr>
+      </thead>
+      <tbody id="lottery-table"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const API_URL = 'https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
     const REFRESH_INTERVAL = 3000;
-    let predictionHistory = [];
+    let history = [];
 
-    async function fetchLotteryData() {{
-        try {{
-            const res = await fetch(API_URL);
-            const {{ data }} = await res.json();
-            if (!data || !Array.isArray(data)) return;
+    function fetchData() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(res => {
+          if (res.info !== 'success') throw new Error('接口错误');
+          const data = res.data;
+          updateTable(data);
+          const prediction = predictNextNumber(data);
+          updatePrediction(prediction, data);
+        })
+        .catch(() => {
+          document.getElementById('update-status').textContent = '数据更新失败';
+          document.getElementById('update-status').className = 'alert alert-danger';
+        });
+    }
 
-            document.getElementById("latest-time").innerText = "最后开奖时间：" + data[0].openTime;
+    function updateTable(data) {
+      const table = document.getElementById('lottery-table');
+      const lastTime = document.getElementById('last-time');
+      table.innerHTML = '';
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.betNo}</td>
+          <td>${item.openNumber}</td>
+          <td>${item.openTime}</td>`;
+        table.appendChild(tr);
+      });
+      lastTime.textContent = data[0].openTime;
+    }
 
-            const freqMap = Array(10).fill(0);
-            data.forEach(item => {{
-                item.openNumber.split(',').forEach(num => {{
-                    freqMap[parseInt(num)]++;
-                }});
-            }});
+    function predictNextNumber(data) {
+      const counts = Array(10).fill(0);
+      data.forEach(item => {
+        item.openNumber.split(',').forEach(num => {
+          counts[parseInt(num)]++;
+        });
+      });
 
-            const bestByFreq = freqMap.indexOf(Math.max(...freqMap));
-            const model = '概率加权模型';
-            const predicted = bestByFreq;
-            const explanation = '频率模型得分更稳定';
+      // 退火算法找出最频数字
+      let current = Math.floor(Math.random() * 10);
+      let best = current;
+      let bestScore = counts[current];
+      let temp = 100;
 
-            const hitRate = getHitRate();
-            updatePredictionDisplay(predicted, model, hitRate, explanation);
-            compareWithLatest(data[0], predicted);
-            renderHistoryTable(data);
-        }} catch (e) {{
-            console.error('接口请求失败', e);
-        }}
-    }}
+      while (temp > 1) {
+        let next = Math.floor(Math.random() * 10);
+        let delta = counts[next] - counts[current];
+        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+          current = next;
+        }
+        if (counts[current] > bestScore) {
+          best = current;
+          bestScore = counts[current];
+        }
+        temp *= 0.95;
+      }
 
-    function updatePredictionDisplay(num, model, rate, reason) {{
-        document.getElementById('predicted-number').innerText = num;
-        document.getElementById('model-used').innerText = model;
-        document.getElementById('prediction-accuracy').innerText = rate.toFixed(2) + "%";
-        document.getElementById('analysis-reason').innerText = reason;
-    }}
+      return best;
+    }
 
-    function compareWithLatest(latestDraw, predictedNum) {{
-        const numbers = latestDraw.openNumber.split(',').map(Number);
-        const hit = numbers.includes(predictedNum);
-        predictionHistory.unshift({{
-            betNo: latestDraw.expect,
-            number: predictedNum,
-            hit,
-        }});
-        if (predictionHistory.length > 20) predictionHistory.pop();
-        renderPredictionHistory();
-    }}
+    function updatePrediction(number, data) {
+      document.getElementById('predicted-number').textContent = number;
+      document.getElementById('used-model').textContent = '退火+频率模型';
+      document.getElementById('analysis-text').textContent = '近期数字频率退火优化选出';
 
-    function renderPredictionHistory() {{
-        const container = document.getElementById('prediction-history');
-        container.innerHTML = '';
-        predictionHistory.forEach(function(item) {{
-            const li = document.createElement('li');
-            li.className = 'list-group-item';
-            li.innerHTML = '预测期号 ' + item.betNo + ' - 数字 ' + item.number + ' - <span class="fw-bold text-' + (item.hit ? 'success' : 'danger') + '">' + (item.hit ? '命中' : '未中') + '</span>';
-            container.appendChild(li);
-        }});
-    }}
+      const total = data.length;
+      const hits = data.filter(d => d.openNumber.split(',').includes(number.toString())).length;
+      const accuracy = ((hits / total) * 100).toFixed(2);
+      document.getElementById('predicted-accuracy').textContent = accuracy;
 
-    function renderHistoryTable(data) {{
-        const tbody = document.getElementById("history-body");
-        tbody.innerHTML = '';
-        data.forEach(item => {{
-            const row = document.createElement('tr');
-            row.innerHTML = "<td>" + item.expect + "</td><td>" + item.openNumber + "</td><td>" + item.openTime + "</td>";
-            tbody.appendChild(row);
-        }});
-    }}
+      // 记录历史
+      const betNo = data[0].betNo;
+      const hit = data[0].openNumber.split(',').includes(number.toString());
+      history.unshift({ betNo, number, hit });
+      if (history.length > 10) history.pop();
 
-    function getHitRate() {{
-        const total = predictionHistory.length || 1;
-        const hits = predictionHistory.filter(item => item.hit).length;
-        return (hits / total) * 100;
-    }}
+      const list = document.getElementById('history');
+      list.innerHTML = '';
+      history.forEach(h => {
+        const li = document.createElement('li');
+        li.className = `list-group-item d-flex justify-content-between`;
+        li.innerHTML = `预测期号 ${h.betNo} - 数字 ${h.number} <span style="color:${h.hit ? 'green' : 'red'}">${h.hit ? '命中' : '未中'}</span>`;
+        list.appendChild(li);
+      });
+    }
 
-    fetchLotteryData();
-    setInterval(fetchLotteryData, REFRESH_INTERVAL);
-    </script>
+    fetchData();
+    setInterval(fetchData, REFRESH_INTERVAL);
+  </script>
 </body>
 </html>
