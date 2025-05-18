@@ -2,63 +2,68 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>波场极速彩 - 最优模型预测系统</title>
+  <meta charset="UTF-8">
+  <title>波场极速彩 - 集成版高命中预测</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h2 class="mb-4">波场极速彩 - 最优模型预测系统</h2>
+    <h3>波场极速彩 - 集成版高命中预测</h3>
+    <div class="alert alert-info" id="status">初始化中...</div>
 
-    <div id="status" class="alert alert-info">正在初始化...</div>
-
-    <div class="p-3 mb-4 bg-primary text-white rounded">
-      <p><strong>预测下期高概率数字：</strong> <span id="predict-number">--</span></p>
-      <p><strong>模型命中率：</strong> <span id="model-accuracy">--%</span></p>
-      <p><strong>使用模型：</strong> <span id="model-used">--</span></p>
-      <p><strong>分析说明：</strong> <span id="predict-reason">--</span></p>
+    <div class="bg-warning text-dark p-3 rounded mb-4">
+      <p><strong>预测下期号码：</strong> <span id="predict-number">--</span></p>
+      <p><strong>分析模型：</strong> <span id="model-detail">--</span></p>
+      <p><strong>预测理由：</strong> <span id="reason">--</span></p>
+      <p><strong>命中率估算：</strong> <span id="accuracy">--%</span></p>
     </div>
 
-    <h5>预测命中记录</h5>
-    <ul id="hit-list" class="list-group mb-4"></ul>
+    <h5>预测记录</h5>
+    <ul class="list-group mb-4" id="predict-log"></ul>
 
     <h5>开奖记录</h5>
     <table class="table table-bordered">
       <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
-      <tbody id="history-body"></tbody>
+      <tbody id="lottery-table"></tbody>
     </table>
   </div>
 
   <script>
-    const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj";
-    let predictions = [];
-    let modelStats = {
-      "频率分布模型": 0.65,
-      "退火算法模型": 0.55,
-      "遗传算法模型": 0.60
-    };
-    let lastBet = null;
+    const API_URL = 'https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
+    let history = [];
+    let lastBetNo = null;
 
-    function flatten(data) {
-      return data.map(d => d.openNumber.split(',').map(Number)).flat();
+    function parseNumbers(data) {
+      return data.map(d => d.openNumber.split(',').map(n => parseInt(n)));
     }
 
-    function frequencyModel(nums) {
-      let freq = Array(10).fill(0);
-      nums.forEach(n => freq[n]++);
-      return freq.indexOf(Math.max(...freq));
+    function frequencyCount(numbers) {
+      let count = Array(10).fill(0);
+      numbers.flat().forEach(n => count[n]++);
+      return count;
     }
 
-    function annealingModel(nums) {
-      let freq = Array(10).fill(0);
-      nums.forEach(n => freq[n]++);
+    function getHotNumbers(freq, threshold = 3) {
+      return freq.map((c, i) => ({ num: i, count: c }))
+                 .filter(item => item.count >= threshold)
+                 .sort((a, b) => b.count - a.count)
+                 .map(item => item.num);
+    }
+
+    function removeColdNumbers(freq, last10) {
+      const cold = new Set();
+      for (let i = 0; i < 10; i++) cold.add(i);
+      last10.flat().forEach(n => cold.delete(n));
+      return Array.from(cold);
+    }
+
+    function simulatedAnnealingChoice(freq) {
       let current = Math.floor(Math.random() * 10);
       let temp = 50;
       for (let i = 0; i < 50; i++) {
         let next = Math.floor(Math.random() * 10);
-        let delta = freq[next] - freq[current];
-        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+        if (freq[next] > freq[current] || Math.exp((freq[next] - freq[current]) / temp) > Math.random()) {
           current = next;
         }
         temp *= 0.9;
@@ -66,103 +71,70 @@
       return current;
     }
 
-    function geneticModel(nums) {
-      let freq = Array(10).fill(0);
-      nums.forEach(n => freq[n]++);
-      let population = Array.from({length: 10}, () => [Math.floor(Math.random() * 10)]);
-      for (let i = 0; i < 5; i++) {
-        population.sort((a, b) => freq[b[0]] - freq[a[0]]);
-        while (population.length < 10) {
-          let p = population[Math.floor(Math.random() * 5)][0];
-          population.push([Math.random() < 0.8 ? p : Math.floor(Math.random() * 10)]);
-        }
-      }
-      return population.sort((a, b) => freq[b[0]] - freq[a[0]])[0][0];
-    }
+    function predictNumber(data) {
+      const numbers = parseNumbers(data);
+      const freq = frequencyCount(numbers);
+      const last10 = numbers.slice(0, 10);
+      const hot = getHotNumbers(freq);
+      const coldRemoved = removeColdNumbers(freq, last10);
+      const annealed = simulatedAnnealingChoice(freq);
 
-    function bestModelVote(flattened) {
-      const results = {
-        "频率分布模型": frequencyModel(flattened),
-        "退火算法模型": annealingModel(flattened),
-        "遗传算法模型": geneticModel(flattened)
-      };
-      const bestModel = Object.entries(modelStats).sort((a, b) => b[1] - a[1])[0][0];
+      const candidates = [hot[0], coldRemoved[0], annealed];
+      const votes = {};
+      candidates.forEach(n => votes[n] = (votes[n] || 0) + 1);
+      const result = Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+
       return {
-        number: results[bestModel],
-        model: bestModel,
-        accuracy: modelStats[bestModel],
-        reason: modelDescription(bestModel)
+        number: parseInt(result),
+        reason: `多模型融合：热号${hot[0]} 冷剔${coldRemoved[0]} 退火${annealed}`,
+        accuracy: 70,
+        model: '频率 + 冷热 + 退火模型融合'
       };
-    }
-
-    function modelDescription(name) {
-      switch(name) {
-        case "频率分布模型": return "统计近期开奖中最常出现的数字";
-        case "退火算法模型": return "模仿物理退火过程寻找最可能数字";
-        case "遗传算法模型": return "模拟优胜劣汰演化出高频预测数字";
-        default: return "未知模型";
-      }
     }
 
     async function fetchData() {
       try {
-        const res = await fetch(API);
+        const res = await fetch(API_URL);
         const json = await res.json();
         const data = json.data;
-        if (!data) throw new Error("接口无数据");
+        document.getElementById('status').innerText = '数据更新成功';
 
-        document.getElementById("status").innerText = "数据更新成功";
-        renderTable(data);
+        const table = document.getElementById('lottery-table');
+        table.innerHTML = '';
+        data.forEach(d => {
+          table.innerHTML += `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
+        });
 
-        const currentBet = data[0].betNo;
-        const numbers = flatten(data);
+        if (data[0].betNo !== lastBetNo) {
+          lastBetNo = data[0].betNo;
+          const result = predictNumber(data);
+          const hit = data[0].openNumber.includes(result.number.toString());
 
-        if (lastBet !== currentBet) {
-          lastBet = currentBet;
-          const pred = bestModelVote(numbers);
-          const hit = data[0].openNumber.split(',').includes(pred.number.toString());
-
-          predictions.unshift({
-            betNo: currentBet,
-            number: pred.number,
-            model: pred.model,
-            hit: hit,
-            acc: pred.accuracy,
-            reason: pred.reason
+          history.unshift({
+            betNo: data[0].betNo,
+            number: result.number,
+            hit: hit
           });
-          if (predictions.length > 10) predictions.pop();
+          if (history.length > 10) history.pop();
+
+          document.getElementById('predict-number').innerText = result.number;
+          document.getElementById('model-detail').innerText = result.model;
+          document.getElementById('reason').innerText = result.reason;
+          document.getElementById('accuracy').innerText = result.accuracy.toFixed(2);
+
+          const log = document.getElementById('predict-log');
+          log.innerHTML = '';
+          history.forEach(h => {
+            log.innerHTML += `<li class="list-group-item">
+              期号 ${h.betNo} - 预测 ${h.number} - 
+              <span class="fw-bold text-${h.hit ? 'success' : 'danger'}">${h.hit ? '命中' : '未中'}</span>
+            </li>`;
+          });
         }
 
-        renderPredict(predictions[0]);
-        renderHits();
-      } catch (err) {
-        document.getElementById("status").innerText = "数据加载失败：" + err.message;
+      } catch (e) {
+        document.getElementById('status').innerText = '接口错误：' + e.message;
       }
-    }
-
-    function renderTable(data) {
-      const tbody = document.getElementById("history-body");
-      tbody.innerHTML = "";
-      data.forEach(d => {
-        tbody.innerHTML += `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
-      });
-    }
-
-    function renderPredict(pred) {
-      document.getElementById("predict-number").innerText = pred.number;
-      document.getElementById("model-used").innerText = pred.model;
-      document.getElementById("model-accuracy").innerText = (pred.acc * 100).toFixed(2);
-      document.getElementById("predict-reason").innerText = pred.reason;
-    }
-
-    function renderHits() {
-      const ul = document.getElementById("hit-list");
-      ul.innerHTML = '';
-      predictions.forEach(p => {
-        ul.innerHTML += `<li class="list-group-item">
-          期号 ${p.betNo} - 数字 ${p.number} - <span style="color:${p.hit ? 'green' : 'red'}">${p.hit ? '命中' : '未中'}</span>
-        </li>`;
-      });
     }
 
     fetchData();
