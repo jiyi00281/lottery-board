@@ -2,109 +2,147 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>波场极速彩 - 智能预测看板</title>
+  <title>波场极速彩 - 集成预测投票系统</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h2 class="mb-3">波场极速彩 - 智能预测看板</h2>
+    <h2>波场极速彩 - 集成预测投票系统</h2>
 
-    <div class="alert alert-success" id="status">数据更新成功</div>
+    <div class="alert alert-success mt-3" id="status">数据初始化中...</div>
 
-    <div class="p-4 mb-3 bg-info text-white rounded">
+    <div class="p-4 bg-info text-white rounded">
       <p><strong>预测数字：</strong><span id="predict-number">--</span></p>
       <p><strong>命中率估算：</strong><span id="hit-rate">--%</span></p>
-      <p><strong>使用模型：</strong><span id="model">--</span></p>
-      <p><strong>分析说明：</strong><span id="analysis">--</span></p>
+      <p><strong>投票支持：</strong><span id="vote-summary">--</span></p>
+      <p><strong>分析说明：</strong><span id="predict-reason">--</span></p>
     </div>
-
-    <p><strong>最后开奖时间：</strong><span id="last-time">--</span></p>
 
     <h5 class="mt-4">预测命中记录</h5>
     <ul id="hit-list" class="list-group mb-4"></ul>
 
     <h5>开奖记录</h5>
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>期号</th>
-          <th>开奖号码</th>
-          <th>开奖时间</th>
-        </tr>
-      </thead>
-      <tbody id="history-table"></tbody>
+    <table class="table table-striped">
+      <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
+      <tbody id="lottery-body"></tbody>
     </table>
   </div>
 
   <script>
     const API_URL = 'https://api.duoqu.online/data?code=Tron-Fast&limit=30&key=rkjpugmlzj';
-    let history = [];
-    let hits = [];
+    let predictions = [];
+    let lastBetNo = null;
 
-    function simulatedAnnealing(numbers) {
-      let freq = {};
-      numbers.flat().forEach(n => freq[n] = (freq[n] || 0) + 1);
-      let sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-      return parseInt(sorted[0][0]); // 返回最频繁数字
+    function frequencyModel(numbers) {
+      const freq = Array(10).fill(0);
+      numbers.flat().forEach(n => freq[n]++);
+      return freq.indexOf(Math.max(...freq));
     }
 
-    function updateDisplay(data) {
-      const latest = data[0];
-      document.getElementById("last-time").innerText = latest.openTime;
+    function coldHotModel(numbers, recent = 10) {
+      const flat = numbers.slice(0, recent).flat();
+      const missing = Array(10).fill(0).map((_, i) => ({
+        n: i,
+        lastSeen: flat.lastIndexOf(i)
+      }));
+      return missing.sort((a, b) => a.lastSeen - b.lastSeen)[0].n;
+    }
 
-      const numbers = data.map(item => item.openNumber.split(',').map(n => parseInt(n)));
-      const predict = simulatedAnnealing(numbers);
-      const currentBet = latest.betNo;
+    function annealingModel(numbers) {
+      const freq = Array(10).fill(0);
+      numbers.flat().forEach(n => freq[n]++);
+      let current = Math.floor(Math.random() * 10);
+      let best = current, bestScore = freq[current], temp = 50;
 
-      const existed = hits.find(h => h.betNo === currentBet);
-      if (!existed) {
-        const hit = numbers[0].includes(predict);
-        hits.unshift({
-          betNo: currentBet,
-          number: predict,
-          hit: hit
-        });
-        if (hits.length > 10) hits.pop();
+      for (let i = 0; i < 100; i++) {
+        const next = Math.floor(Math.random() * 10);
+        const delta = freq[next] - freq[current];
+        if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+          current = next;
+          if (freq[current] > bestScore) {
+            best = current;
+            bestScore = freq[current];
+          }
+        }
+        temp *= 0.95;
       }
+      return best;
+    }
 
-      document.getElementById("predict-number").innerText = predict;
-      document.getElementById("hit-rate").innerText = (hits.filter(h => h.hit).length / hits.length * 100).toFixed(2) + "%";
-      document.getElementById("model").innerText = "退火 + 概率模型";
-      document.getElementById("analysis").innerText = "近期数字频率退火优化选出";
-
-      let hitHTML = "";
-      hits.forEach(h => {
-        hitHTML += `<li class="list-group-item">
-          预测期号 ${h.betNo} - 数字 ${h.number} - <span style="color:${h.hit ? 'green' : 'red'}">${h.hit ? '命中' : '未中'}</span>
-        </li>`;
-      });
-      document.getElementById("hit-list").innerHTML = hitHTML;
-
-      let tableHTML = "";
-      data.slice(0, 20).forEach(item => {
-        tableHTML += `<tr><td>${item.betNo}</td><td>${item.openNumber}</td><td>${item.openTime}</td></tr>`;
-      });
-      document.getElementById("history-table").innerHTML = tableHTML;
+    function getVoteResult(votes) {
+      const tally = {};
+      votes.forEach(n => tally[n] = (tally[n] || 0) + 1);
+      const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+      return {
+        number: parseInt(sorted[0][0]),
+        detail: sorted.map(e => `${e[0]}(${e[1]}票)`).join(' ')
+      };
     }
 
     async function fetchData() {
       try {
         const res = await fetch(API_URL);
-        const json = await res.json();
-        if (json.data) {
-          updateDisplay(json.data);
-          document.getElementById("status").innerText = "数据更新成功";
-        } else {
-          document.getElementById("status").innerText = "接口返回失败";
+        const { data } = await res.json();
+        if (!data || !Array.isArray(data)) throw new Error("数据无效");
+
+        document.getElementById("status").innerText = "数据更新成功";
+
+        const body = document.getElementById("lottery-body");
+        body.innerHTML = '';
+        data.forEach(d => {
+          const row = `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
+          body.innerHTML += row;
+        });
+
+        const latest = data[0];
+        const numbers = data.map(d => d.openNumber.split(',').map(Number));
+
+        if (latest.betNo !== lastBetNo) {
+          lastBetNo = latest.betNo;
+
+          const vote = [
+            frequencyModel(numbers),
+            annealingModel(numbers),
+            coldHotModel(numbers)
+          ];
+          const result = getVoteResult(vote);
+
+          const hit = latest.openNumber.split(',').includes(result.number.toString());
+          predictions.unshift({ betNo: latest.betNo, number: result.number, hit: hit, detail: result.detail });
+          if (predictions.length > 10) predictions.pop();
+
+          renderPredict(result.number, result.detail);
         }
-      } catch (e) {
-        document.getElementById("status").innerText = "拉取失败：" + e.message;
+
+        renderHits();
+      } catch (err) {
+        document.getElementById("status").innerText = "更新失败：" + err.message;
+        console.error(err);
       }
     }
 
+    function renderPredict(num, detail) {
+      document.getElementById("predict-number").innerText = num;
+      document.getElementById("vote-summary").innerText = detail;
+      document.getElementById("predict-reason").innerText = "3种模型投票决定，综合频率/冷号/退火分布";
+      const rate = predictions.filter(p => p.hit).length / predictions.length * 100;
+      document.getElementById("hit-rate").innerText = rate.toFixed(2);
+    }
+
+    function renderHits() {
+      const ul = document.getElementById("hit-list");
+      ul.innerHTML = '';
+      predictions.forEach(p => {
+        const li = document.createElement("li");
+        li.className = "list-group-item";
+        li.innerHTML = `预测期号 ${p.betNo} - 数字 ${p.number} - <span class="fw-bold text-${p.hit ? 'success' : 'danger'}">${p.hit ? '命中' : '未中'}</span>`;
+        ul.appendChild(li);
+      });
+    }
+
     fetchData();
-    setInterval(fetchData, 3000); // 每3秒刷新
+    setInterval(fetchData, 3000);
   </script>
 </body>
 </html>
