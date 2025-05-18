@@ -1,75 +1,71 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>波场极速彩 - 路数统计面板</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>波场极速彩 - 路数热度统计</title>
+  <style>
+    body {
+      font-family: 'Microsoft YaHei', sans-serif;
+      padding: 20px;
+      background: #f6f6f6;
+    }
+    .result {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      margin-top: 10px;
+    }
+    h2 {
+      color: #333;
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container py-4">
-    <h3>波场极速彩 - 最近三期路数统计</h3>
-    <div class="alert alert-info" id="status">正在加载数据...</div>
+<body>
+  <h2>波场极速彩 - 最近三期路数标准化热度统计</h2>
+  <div class="result" id="stats">加载中...</div>
 
-    <h5 class="mt-4">最近三期路数分布</h5>
-    <ul class="list-group mb-4" id="route-summary"></ul>
+  <script>
+    const API_URL = 'https://api.duoqu.online/data?code=Tron-Fast&limit=3&key=rkjpugmlzj';
 
-    <h5>开奖记录</h5>
-    <table class="table table-bordered">
-      <thead><tr><th>期号</th><th>开奖号码</th><th>开奖时间</th></tr></thead>
-      <tbody id="lottery-table"></tbody>
-    </table>
-  </div>
+    // 路数分组
+    const groupMap = {
+      0: [0, 3, 6, 9],
+      1: [1, 4, 7],
+      2: [2, 5, 8],
+    };
 
-<script>
-const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=10&key=rkjpugmlzj";
+    const groupWeight = {
+      0: 4,
+      1: 3,
+      2: 3
+    };
 
-function parseNumbers(data) {
-  return data.map(d => d.openNumber.split(',').map(n => parseInt(n)));
-}
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        const draws = data.data || [];
+        const routeCount = { 0: 0, 1: 0, 2: 0 };
 
-function getRouteStats(three) {
-  const route = [0, 0, 0];
-  three.flat().forEach(n => route[n % 3]++);
-  const total = route.reduce((a, b) => a + b, 0);
-  const percent = route.map(c => (c / total * 100).toFixed(2));
-  return { count: route, percent };
-}
+        draws.forEach(item => {
+          const nums = item.openNumber.split(',').map(n => parseInt(n));
+          nums.forEach(num => {
+            const route = num % 3;
+            routeCount[route]++;
+          });
+        });
 
-function renderRoutes(stats) {
-  const labels = ["0路（0369）", "1路（147）", "2路（258）"];
-  const ul = document.getElementById("route-summary");
-  ul.innerHTML = "";
-  stats.count.forEach((c, i) => {
-    ul.innerHTML += `<li class="list-group-item">${labels[i]}：${c} 次，占比 ${stats.percent[i]}%</li>`;
-  });
-}
+        const statsHTML = [0,1,2].map(route => {
+          const raw = routeCount[route];
+          const normalized = (raw / groupWeight[route] * 100).toFixed(2);
+          return `${route}路（${groupMap[route].join('')}）: 出现 ${raw} 次，标准化热度 ${normalized}%`;
+        }).join('<br>');
 
-function renderTable(data) {
-  const table = document.getElementById("lottery-table");
-  table.innerHTML = "";
-  data.forEach(d => {
-    table.innerHTML += `<tr><td>${d.betNo}</td><td>${d.openNumber}</td><td>${d.openTime}</td></tr>`;
-  });
-}
-
-function fetchData() {
-  fetch(API_URL).then(res => res.json()).then(json => {
-    const data = json.data;
-    document.getElementById("status").innerText = "数据加载成功";
-    renderTable(data);
-
-    const numbers = parseNumbers(data);
-    const last3 = numbers.slice(0, 3);
-    const stats = getRouteStats(last3);
-    renderRoutes(stats);
-  }).catch(e => {
-    document.getElementById("status").innerText = "接口错误：" + e.message;
-  });
-}
-
-fetchData();
-setInterval(fetchData, 5000);
-</script>
+        document.getElementById('stats').innerHTML = statsHTML;
+      })
+      .catch(err => {
+        document.getElementById('stats').innerHTML = '数据加载失败：' + err;
+      });
+  </script>
 </body>
 </html>
