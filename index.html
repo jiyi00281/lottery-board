@@ -7,13 +7,21 @@
   <style>
     body { font-family: Arial; padding: 20px; background: #f9f9f9; }
     h2 { color: #222; }
-    ul { line-height: 1.8; }
+    ul { line-height: 1.8; padding-left: 1em; }
     .highlight { color: red; font-weight: bold; }
+    .section { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; box-shadow: 0 0 5px #ddd; }
+    .numbers { color: green; font-weight: bold; }
   </style>
 </head>
 <body>
   <h2>波场彩票 - 对码分析预测</h2>
-  <div>
+
+  <div class="section">
+    <h4>最近 5 期开奖号码：</h4>
+    <ul id="recent-lottery"></ul>
+  </div>
+
+  <div class="section">
     <h4>对码组：</h4>
     <ul>
       <li>A组（0,5）</li>
@@ -24,7 +32,8 @@
     </ul>
   </div>
 
-  <div id="trend"></div>
+  <div class="section" id="trend"></div>
+
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
 
@@ -40,7 +49,17 @@
       fetch(API)
         .then(res => res.json())
         .then(res => {
-          const data = res.data.map(d => d.openNumber.split(',').map(Number));
+          const records = res.data || [];
+          if (records.length === 0) return;
+
+          // 展示最近5期开奖号码
+          const recentHTML = records.slice(0, 5).map(item => {
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
+          }).join('');
+          document.getElementById("recent-lottery").innerHTML = recentHTML;
+
+          // 统计每组出现次数
+          const data = records.map(d => d.openNumber.split(',').map(Number));
           const trend = {};
           for (const [group, nums] of Object.entries(pairs)) {
             trend[group] = Array(data.length).fill(0);
@@ -59,7 +78,7 @@
           }).join('');
 
           document.getElementById("trend").innerHTML = `
-            <h4>最近10期对码趋势统计：</h4>
+            <h4>最近 10 期对码趋势统计：</h4>
             <ul>${trendHTML}</ul>
           `;
         });
