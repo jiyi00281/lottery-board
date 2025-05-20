@@ -24,6 +24,7 @@
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
+    let history = [];
 
     function fetchAndAnalyze() {
       fetch(API)
@@ -74,12 +75,11 @@
             recommendedNums.push(sortedTrends[0]); // 添加趋势数字
           }
 
-          // 比较推荐数字与最新开奖
+          // 更新推荐显示
+          const recStr = recommendedNums.join(" / ");
           const latestData = data[0];
           const hit = latestData.some(n => recommendedNums.includes(n));
-          const recStr = recommendedNums.join(" / ");
 
-          // 更新推荐显示
           document.getElementById("recommend").innerHTML = `
             <h4>下一期推荐数字：<span class="numbers">${recStr}</span></h4>
             <p>可能结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
@@ -92,6 +92,20 @@
             return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
+
+          // 添加命中记录至历史数据
+          const currentPeriod = records[0].betNo;
+          const record = {
+            period: currentPeriod,
+            rec: recStr,
+            result: hit ? '命中' : '未中'
+          };
+
+          // 只更新历史记录，保留之前的记录
+          if (!history.find(h => h.period === currentPeriod)) {
+            history.unshift(record);
+            if (history.length > 10) history.pop();
+          }
 
         })
         .catch(error => {
