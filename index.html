@@ -88,8 +88,9 @@
           // 更新最近开奖号码，带上推荐的数字和命中状态
           const updatedRecentHTML = records.slice(0, 20).map(item => {
             const numbersArray = item.openNumber.split(',').map(Number);
-            const recommendedHit = recommendedNums.some(n => numbersArray.includes(n));
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
+            const recommendedHit = item.rec && numbersArray.some(n => item.rec.split(',').map(Number).includes(n));
+            const recommendedStr = item.rec || recStr; // 保持之前的推荐号码
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recommendedStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
 
