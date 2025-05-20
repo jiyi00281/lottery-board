@@ -56,9 +56,12 @@
           if (records.length < 2) return;
 
           // 展示最近 5 期开奖号码
-          const recentHTML = records.slice(0, 5).map(item =>
-            `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`
-          ).join('');
+          const recentHTML = records.slice(0, 5).map(item => {
+            // 获取当前推荐
+            const latest = item.openNumber.split(',').map(Number);
+            const hit = checkHit(latest);  // 检查命中情况
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime} - <strong class="highlight">${hit}</strong></li>`;
+          }).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
           const data = records.map(d => d.openNumber.split(',').map(Number));
@@ -102,9 +105,9 @@
             recommendedNums = pairs["A"];
           }
 
-          // 命中判断
-          const latest = data[0];
-          const hit = latest.some(n => recommendedNums.includes(n));
+          // 检查命中情况
+          const latestData = data[0];
+          const hit = latestData.some(n => recommendedNums.includes(n));
           const recStr = recommendedNums.join(" / ");
 
           // 添加记录
@@ -131,6 +134,12 @@
             <ul>${history.map(h => `<li>${h.period} - 推荐：${h.rec} - <b>${h.result}</b></li>`).join('')}</ul>
           `;
         });
+    }
+
+    function checkHit(latest) {
+      // 根据推荐的号码是否命中，返回命中或未中
+      const recStr = history.length > 0 ? history[0].rec.split(' / ') : [];
+      return latest.some(n => recStr.includes(n.toString())) ? '命中' : '未中';
     }
 
     fetchAndAnalyze();
