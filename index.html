@@ -2,24 +2,19 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>波场彩票 - 对码分析预测</title>
   <style>
-    body { font-family: Arial; padding: 20px; background: #f9f9f9; }
-    h2 { color: #222; }
-    ul { line-height: 1.8; padding-left: 1em; }
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    h2, h4 { color: #222; }
+    ul { line-height: 1.8; padding-left: 20px; }
     .highlight { color: red; font-weight: bold; }
-    .section { margin-top: 20px; padding: 10px; background: #fff; border-radius: 6px; box-shadow: 0 0 5px #ddd; }
     .numbers { color: green; font-weight: bold; }
+    .section { margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 0 5px #ccc; }
   </style>
 </head>
 <body>
   <h2>波场彩票 - 对码分析预测</h2>
-
-  <div class="section">
-    <h4>最近 5 期开奖号码：</h4>
-    <ul id="recent-lottery"></ul>
-  </div>
 
   <div class="section">
     <h4>对码组：</h4>
@@ -33,6 +28,12 @@
   </div>
 
   <div class="section" id="trend"></div>
+  <div class="section" id="recommend"></div>
+  <div class="section" id="history"></div>
+  <div class="section">
+    <h4>最近开奖号码（前5期）</h4>
+    <ul id="recent-lottery"></ul>
+  </div>
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
@@ -45,41 +46,89 @@
       "E": [4, 9],
     };
 
+    let history = [];
+
     function fetchAndAnalyze() {
       fetch(API)
         .then(res => res.json())
         .then(res => {
           const records = res.data || [];
-          if (records.length === 0) return;
+          if (records.length < 2) return;
 
-          // 展示最近5期开奖号码
-          const recentHTML = records.slice(0, 5).map(item => {
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
-          }).join('');
+          // 展示最近 5 期开奖号码
+          const recentHTML = records.slice(0, 5).map(item =>
+            `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`
+          ).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
-          // 统计每组出现次数
           const data = records.map(d => d.openNumber.split(',').map(Number));
+
+          // 趋势分析
           const trend = {};
+          const directions = {};
           for (const [group, nums] of Object.entries(pairs)) {
             trend[group] = Array(data.length).fill(0);
             data.forEach((row, i) => {
               row.forEach(n => { if (nums.includes(n)) trend[group][i]++; });
             });
+
+            // 趋势判断（基于近两期）
+            const arr = trend[group];
+            const delta = arr[0] - arr[1];
+            if (delta >= 2) directions[group] = "升温趋势";
+            else if (delta <= -2) directions[group] = "降温趋势";
+            else directions[group] = "平稳";
           }
 
+          // 显示趋势表
           const trendHTML = Object.entries(trend).map(([g, arr]) => {
-            let direction = "→ 无明显趋势";
-            const delta = arr[arr.length - 1] - arr[arr.length - 2];
-            if (delta >= 2) direction = "→ 升温趋势";
-            else if (delta <= -2) direction = "→ 降温趋势";
-            else if (arr.every(v => v === arr[0])) direction = "→ 平稳";
-            return `<li>${g}组（${pairs[g].join(',')}）：次数 [${arr.join(', ')}] <span class="highlight">${direction}</span></li>`;
+            const direction = directions[g] || '平稳';
+            return `<li>${g}组（${pairs[g].join(',')}）：次数 [${arr.slice(0, 10).join(', ')}] → <span class="highlight">${direction}</span></li>`;
           }).join('');
-
           document.getElementById("trend").innerHTML = `
-            <h4>最近 10 期对码趋势统计：</h4>
+            <h4>最近10期对码趋势统计：</h4>
             <ul>${trendHTML}</ul>
+          `;
+
+          // 推荐逻辑：从升温组中取一组
+          let selectedGroup = Object.entries(directions).find(([_, dir]) => dir === "升温趋势");
+          let recommendedNums = [];
+
+          if (selectedGroup) {
+            const [groupKey] = selectedGroup;
+            recommendedNums = pairs[groupKey];
+          } else {
+            // 无升温组，默认选 A
+            recommendedNums = pairs["A"];
+          }
+
+          // 命中判断
+          const latest = data[0];
+          const hit = latest.some(n => recommendedNums.includes(n));
+          const recStr = recommendedNums.join(" / ");
+
+          // 添加记录
+          const currentPeriod = records[0].betNo;
+          const record = {
+            period: currentPeriod,
+            rec: recStr,
+            result: hit ? '命中' : '未中'
+          };
+          if (!history.find(h => h.period === currentPeriod)) {
+            history.unshift(record);
+            if (history.length > 10) history.pop();
+          }
+
+          // 更新推荐显示
+          document.getElementById("recommend").innerHTML = `
+            <h4>当前推荐数字：<span class="numbers">${recStr}</span></h4>
+            <p>本期结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
+          `;
+
+          // 展示历史记录
+          document.getElementById("history").innerHTML = `
+            <h4>命中记录（最近10期）：</h4>
+            <ul>${history.map(h => `<li>${h.period} - 推荐：${h.rec} - <b>${h.result}</b></li>`).join('')}</ul>
           `;
         });
     }
