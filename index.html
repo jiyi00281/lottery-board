@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>波场彩票 - 对码分析预测</title>
+  <title>波场彩票 - 数字预测分析</title>
   <style>
     body { font-family: Arial; padding: 20px; background: #f4f4f4; }
     h2, h4 { color: #222; }
@@ -14,20 +14,8 @@
   </style>
 </head>
 <body>
-  <h2>波场彩票 - 对码分析预测</h2>
+  <h2>波场彩票 - 数字预测分析</h2>
 
-  <div class="section">
-    <h4>对码组：</h4>
-    <ul>
-      <li>A组（0,5）</li>
-      <li>B组（1,6）</li>
-      <li>C组（2,7）</li>
-      <li>D组（3,8）</li>
-      <li>E组（4,9）</li>
-    </ul>
-  </div>
-
-  <div class="section" id="trend"></div>
   <div class="section" id="recommend"></div>
   <div class="section" id="history"></div>
   <div class="section">
@@ -36,15 +24,7 @@
   </div>
 
   <script>
-    const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
-
-    const pairs = {
-      "A": [0, 5],
-      "B": [1, 6],
-      "C": [2, 7],
-      "D": [3, 8],
-      "E": [4, 9],
-    };
+    const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
 
     let history = [];
 
@@ -62,53 +42,42 @@
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
           const data = records.map(d => d.openNumber.split(',').map(Number));
-          
-          // 频率计算
           const frequency = {};
+          const trends = {};
+
+          // 频率统计
           data.flat().forEach(num => {
             if (!frequency[num]) frequency[num] = 0;
             frequency[num]++;
           });
 
-          // 热点和冷门号码
-          const sortedNumbers = Object.entries(frequency)
+          // 计算趋势
+          const trendLength = 5; // 设置用于趋势判断的期数
+          for (let i = 0; i < trendLength && i < records.length; i++) {
+            const numbers = records[i].openNumber.split(',').map(Number);
+            numbers.forEach(num => {
+              if (!trends[num]) trends[num] = 0;
+              trends[num]++;
+            });
+          }
+
+          // 排序获取频率最高和趋势最高的数字
+          const sortedFrequency = Object.entries(frequency)
             .sort((a, b) => b[1] - a[1])
             .map(item => Number(item[0]));
 
-          const hotNumbers = sortedNumbers.slice(0, 3); // 选择出现频率最高的3个
-          const coldNumbers = sortedNumbers.slice(-3); // 选择出现频率最低的3个
+          const sortedTrends = Object.entries(trends)
+            .sort((a, b) => b[1] - a[1])
+            .map(item => Number(item[0]));
 
-          // 趋势分析
-          const trend = {};
-          const directions = {};
-          for (const [group, nums] of Object.entries(pairs)) {
-            trend[group] = Array(data.length).fill(0);
-            data.forEach((row, i) => {
-              row.forEach(n => { if (nums.includes(n)) trend[group][i]++; });
-            });
-
-            // 趋势判断（基于近两期）
-            const arr = trend[group];
-            const delta = arr[0] - arr[1];
-            if (delta >= 2) directions[group] = "升温趋势";
-            else if (delta <= -2) directions[group] = "降温趋势";
-            else directions[group] = "平稳";
+          // 整合推荐：选择一个热点，一个趋势数字
+          const recommendedNums = [];
+          recommendedNums.push(sortedFrequency[0]); // 添加频率最高的数字
+          if (sortedTrends.length > 0) {
+            recommendedNums.push(sortedTrends[0]); // 添加趋势数字
           }
 
-          // 显示趋势表
-          const trendHTML = Object.entries(trend).map(([g, arr]) => {
-            const direction = directions[g] || '平稳';
-            return `<li>${g}组（${pairs[g].join(',')}）：次数 [${arr.slice(0, 10).join(', ')}] → <span class="highlight">${direction}</span></li>`;
-          }).join('');
-          document.getElementById("trend").innerHTML = `
-            <h4>最近10期对码趋势统计：</h4>
-            <ul>${trendHTML}</ul>
-          `;
-
-          // 综合推荐逻辑
-          const recommendedNums = [...new Set([...hotNumbers, ...coldNumbers])].slice(0, 3); // 选择热、冷各一，最多三个号码
-
-          // 比较推荐与最新开奖
+          // 比较推荐数字与最新开奖
           const latestData = data[0];
           const hit = latestData.some(n => recommendedNums.includes(n));
           const recStr = recommendedNums.join(" / ");
@@ -144,11 +113,14 @@
             <h4>命中记录（最近10期）：</h4>
             <ul>${history.map(h => `<li>${h.period} - 推荐：${h.rec} - <b>${h.result}</b></li>`).join('')}</ul>
           `;
+        })
+        .catch(error => {
+          console.error("数据获取失败:", error);
         });
     }
 
     fetchAndAnalyze();
-    setInterval(fetchAndAnalyze, 3000);
+    setInterval(fetchAndAnalyze, 30000); // 每30秒重新获取数据
   </script>
 </body>
 </html>
