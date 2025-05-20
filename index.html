@@ -3,107 +3,94 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>预测优化版 - 路数趋势+动态权重</title>
+  <title>波场彩票 - 对码分析预测</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
-    .section { background: #fff; padding: 15px; margin-bottom: 20px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-    .highlight { color: red; font-weight: bold; }
-    ul { line-height: 1.8; }
+    body { font-family: Arial; background: #f7f7f7; margin: 20px; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    h2 { color: #333; }
+    .highlight { font-weight: bold; color: red; }
   </style>
 </head>
 <body>
-  <h2>彩票预测系统（优化版）</h2>
-  <div class="section" id="status">数据加载中...</div>
-  <div class="section" id="records"></div>
-  <div class="section" id="trend"></div>
-  <div class="section" id="prediction"></div>
+<div class="container">
+  <h2>波场彩票 - 对码分析预测</h2>
+  <p><strong>对码组：</strong></p>
+  <ul>
+    <li>A组（0,5）</li>
+    <li>B组（1,6）</li>
+    <li>C组（2,7）</li>
+    <li>D组（3,8）</li>
+    <li>E组（4,9）</li>
+  </ul>
+  <div id="result">数据加载中...</div>
+</div>
 
-  <script>
-    const API_URL = 'https://api.duoqu.online/data?code=Tron-Fast&limit=10&key=rkjpugmlzj';
-    const routeGroups = {
-      0: [0, 3, 6, 9],
-      1: [1, 4, 7],
-      2: [2, 5, 8]
-    };
+<script>
+const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
+const groupMap = {
+  'A': [0, 5],
+  'B': [1, 6],
+  'C': [2, 7],
+  'D': [3, 8],
+  'E': [4, 9]
+};
 
-    let historyHit = [];
+function getGroup(num) {
+  for (let key in groupMap) {
+    if (groupMap[key].includes(Number(num))) return key;
+  }
+  return null;
+}
 
-    function analyze() {
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-          const list = data.data;
-          if (!list || list.length < 3) return;
+async function fetchAndAnalyze() {
+  const res = await fetch(API_URL);
+  const data = await res.json();
+  const draws = data.data.slice(0, 10);
 
-          document.getElementById("status").innerHTML = "数据获取成功，共 " + list.length + " 期";
+  const groupHistory = { A: [], B: [], C: [], D: [], E: [] };
+  const countTrend = { A: [], B: [], C: [], D: [], E: [] };
 
-          // 显示原始开奖数据
-          const recordList = list.slice(0, 3).map(d =>
-            `<li>${d.betNo} - ${d.openNumber} - ${d.openTime}</li>`
-          ).join("");
-          document.getElementById("records").innerHTML = "<h3>最近开奖</h3><ul>" + recordList + "</ul>";
-
-          // 路数热度分析
-          const trend = { 0: [], 1: [], 2: [] };
-          list.slice(0, 10).forEach(d => {
-            const nums = d.openNumber.split(',').map(n => parseInt(n));
-            const count = { 0: 0, 1: 0, 2: 0 };
-            nums.forEach(n => {
-              if (routeGroups[0].includes(n)) count[0]++;
-              else if (routeGroups[1].includes(n)) count[1]++;
-              else count[2]++;
-            });
-            trend[0].push(count[0]);
-            trend[1].push(count[1]);
-            trend[2].push(count[2]);
-          });
-
-          // 识别趋势
-          function getTrend(arr) {
-            const slope = arr[arr.length - 1] - arr[0];
-            if (slope > 0) return '升温';
-            if (slope < 0) return '降温';
-            return '平稳';
-          }
-
-          const trendHTML = Object.entries(trend).map(([k, arr]) => {
-            const t = getTrend(arr);
-            return `<li>${k}路（${routeGroups[k].join("")}）出现次数：[${arr.join(', ')}] → <span class="highlight">${t}</span></li>`;
-          }).join("");
-          document.getElementById("trend").innerHTML = "<h3>路数趋势分析</h3><ul>" + trendHTML + "</ul>";
-
-          // 动态投票打分
-          const routeWeights = {};
-          Object.entries(trend).forEach(([k, arr]) => {
-            const t = getTrend(arr);
-            routeWeights[k] = t === '升温' ? 1.5 : t === '降温' ? 0.7 : 1.0;
-          });
-
-          const scores = {};
-          for (let i = 0; i <= 9; i++) {
-            const r = routeGroups[0].includes(i) ? 0 : routeGroups[1].includes(i) ? 1 : 2;
-            scores[i] = routeWeights[r];
-          }
-
-          const sorted = Object.entries(scores).sort((a,b) => b[1]-a[1]);
-          const bestNumber = sorted[0][0];
-
-          // 命中统计
-          const lastOpen = list[0].openNumber.split(',').map(Number);
-          const hit = lastOpen.includes(parseInt(bestNumber));
-          historyHit.unshift(hit ? 1 : 0);
-          if (historyHit.length > 20) historyHit.pop();
-
-          const hitRate = (historyHit.reduce((a,b)=>a+b, 0) / historyHit.length * 100).toFixed(1);
-
-          document.getElementById("prediction").innerHTML =
-            `<h3>当前推荐数字：<span class="highlight">${bestNumber}</span></h3>
-             <p>命中率（近 ${historyHit.length} 期）：${hitRate}%</p>`;
-        });
+  draws.forEach(draw => {
+    const nums = draw.openNumber.split(",").map(n => parseInt(n.trim()));
+    const groupCounts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+    nums.forEach(num => {
+      const g = getGroup(num);
+      if (g) groupCounts[g]++;
+    });
+    for (let g in groupCounts) {
+      countTrend[g].push(groupCounts[g]);
     }
+  });
 
-    analyze();
-    setInterval(analyze, 3000);
-  </script>
+  const latest = countTrend;
+  const trendText = g => {
+    const trend = latest[g].slice(-5);
+    const diff = trend[trend.length - 1] - trend[0];
+    if (diff > 0) return "升温趋势";
+    if (diff < 0) return "降温趋势";
+    return "平稳";
+  };
+
+  let resultHTML = "<h3>最近10期对码趋势统计：</h3><ul>";
+  for (let g in countTrend) {
+    resultHTML += `<li>${g}组（${groupMap[g].join(",")}）：次数 [${countTrend[g].join(", ")}] → <span class="highlight">${trendText(g)}</span></li>`;
+  }
+
+  const hotGroup = Object.keys(countTrend).sort((a,b) => {
+    const sumA = countTrend[a].slice(-3).reduce((x,y)=>x+y, 0);
+    const sumB = countTrend[b].slice(-3).reduce((x,y)=>x+y, 0);
+    return sumB - sumA;
+  })[0];
+
+  const recommended = groupMap[hotGroup][Math.floor(Math.random() * 2)];
+
+  resultHTML += "</ul>";
+  resultHTML += `<p><strong>当前推荐组：</strong> <span class="highlight">${hotGroup}组（${groupMap[hotGroup].join(", ")}） → 推荐数字：<strong>${recommended}</strong></span></p>`;
+
+  document.getElementById("result").innerHTML = resultHTML;
+}
+
+fetchAndAnalyze();
+</script>
 </body>
 </html>
