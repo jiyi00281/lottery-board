@@ -1,96 +1,72 @@
-
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>波场彩票 - 对码分析预测</title>
   <style>
-    body { font-family: Arial; background: #f7f7f7; margin: 20px; }
-    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    h2 { color: #333; }
-    .highlight { font-weight: bold; color: red; }
+    body { font-family: Arial; padding: 20px; background: #f9f9f9; }
+    h2 { color: #222; }
+    ul { line-height: 1.8; }
+    .highlight { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
-<div class="container">
   <h2>波场彩票 - 对码分析预测</h2>
-  <p><strong>对码组：</strong></p>
-  <ul>
-    <li>A组（0,5）</li>
-    <li>B组（1,6）</li>
-    <li>C组（2,7）</li>
-    <li>D组（3,8）</li>
-    <li>E组（4,9）</li>
-  </ul>
-  <div id="result">数据加载中...</div>
-</div>
+  <div>
+    <h4>对码组：</h4>
+    <ul>
+      <li>A组（0,5）</li>
+      <li>B组（1,6）</li>
+      <li>C组（2,7）</li>
+      <li>D组（3,8）</li>
+      <li>E组（4,9）</li>
+    </ul>
+  </div>
 
-<script>
-const API_URL = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
-const groupMap = {
-  'A': [0, 5],
-  'B': [1, 6],
-  'C': [2, 7],
-  'D': [3, 8],
-  'E': [4, 9]
-};
+  <div id="trend"></div>
+  <script>
+    const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=20&key=rkjpugmlzj";
 
-function getGroup(num) {
-  for (let key in groupMap) {
-    if (groupMap[key].includes(Number(num))) return key;
-  }
-  return null;
-}
+    const pairs = {
+      "A": [0, 5],
+      "B": [1, 6],
+      "C": [2, 7],
+      "D": [3, 8],
+      "E": [4, 9],
+    };
 
-async function fetchAndAnalyze() {
-  const res = await fetch(API_URL);
-  const data = await res.json();
-  const draws = data.data.slice(0, 10);
+    function fetchAndAnalyze() {
+      fetch(API)
+        .then(res => res.json())
+        .then(res => {
+          const data = res.data.map(d => d.openNumber.split(',').map(Number));
+          const trend = {};
+          for (const [group, nums] of Object.entries(pairs)) {
+            trend[group] = Array(data.length).fill(0);
+            data.forEach((row, i) => {
+              row.forEach(n => { if (nums.includes(n)) trend[group][i]++; });
+            });
+          }
 
-  const groupHistory = { A: [], B: [], C: [], D: [], E: [] };
-  const countTrend = { A: [], B: [], C: [], D: [], E: [] };
+          const trendHTML = Object.entries(trend).map(([g, arr]) => {
+            let direction = "→ 无明显趋势";
+            const delta = arr[arr.length - 1] - arr[arr.length - 2];
+            if (delta >= 2) direction = "→ 升温趋势";
+            else if (delta <= -2) direction = "→ 降温趋势";
+            else if (arr.every(v => v === arr[0])) direction = "→ 平稳";
+            return `<li>${g}组（${pairs[g].join(',')}）：次数 [${arr.join(', ')}] <span class="highlight">${direction}</span></li>`;
+          }).join('');
 
-  draws.forEach(draw => {
-    const nums = draw.openNumber.split(",").map(n => parseInt(n.trim()));
-    const groupCounts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
-    nums.forEach(num => {
-      const g = getGroup(num);
-      if (g) groupCounts[g]++;
-    });
-    for (let g in groupCounts) {
-      countTrend[g].push(groupCounts[g]);
+          document.getElementById("trend").innerHTML = `
+            <h4>最近10期对码趋势统计：</h4>
+            <ul>${trendHTML}</ul>
+          `;
+        });
     }
-  });
 
-  const latest = countTrend;
-  const trendText = g => {
-    const trend = latest[g].slice(-5);
-    const diff = trend[trend.length - 1] - trend[0];
-    if (diff > 0) return "升温趋势";
-    if (diff < 0) return "降温趋势";
-    return "平稳";
-  };
-
-  let resultHTML = "<h3>最近10期对码趋势统计：</h3><ul>";
-  for (let g in countTrend) {
-    resultHTML += `<li>${g}组（${groupMap[g].join(",")}）：次数 [${countTrend[g].join(", ")}] → <span class="highlight">${trendText(g)}</span></li>`;
-  }
-
-  const hotGroup = Object.keys(countTrend).sort((a,b) => {
-    const sumA = countTrend[a].slice(-3).reduce((x,y)=>x+y, 0);
-    const sumB = countTrend[b].slice(-3).reduce((x,y)=>x+y, 0);
-    return sumB - sumA;
-  })[0];
-
-  const recommended = groupMap[hotGroup][Math.floor(Math.random() * 2)];
-
-  resultHTML += "</ul>";
-  resultHTML += `<p><strong>当前推荐组：</strong> <span class="highlight">${hotGroup}组（${groupMap[hotGroup].join(", ")}） → 推荐数字：<strong>${recommended}</strong></span></p>`;
-
-  document.getElementById("result").innerHTML = resultHTML;
-}
-
-fetchAndAnalyze();
-</script>
+    fetchAndAnalyze();
+    setInterval(fetchAndAnalyze, 3000);
+  </script>
 </body>
 </html>
