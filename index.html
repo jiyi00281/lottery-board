@@ -17,16 +17,13 @@
   <h2>波场彩票 - 数字预测分析</h2>
 
   <div class="section" id="recommend"></div>
-  <div class="section" id="history"></div>
   <div class="section">
-    <h4>最近开奖号码（前5期）</h4>
+    <h4>最近开奖号码（前20期）</h4>
     <ul id="recent-lottery"></ul>
   </div>
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
-
-    let history = [];
 
     function fetchAndAnalyze() {
       fetch(API)
@@ -35,8 +32,8 @@
           const records = res.data || [];
           if (records.length < 2) return;
 
-          // 展示最近 5 期开奖号码
-          const recentHTML = records.slice(0, 5).map(item => {
+          // 显示最近 20 期开奖号码
+          const recentHTML = records.slice(0, 20).map(item => {
             return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
@@ -82,37 +79,20 @@
           const hit = latestData.some(n => recommendedNums.includes(n));
           const recStr = recommendedNums.join(" / ");
 
-          // 添加记录
-          const currentPeriod = records[0].betNo;
-          const record = {
-            period: currentPeriod,
-            rec: recStr,
-            result: hit ? '命中' : '未中'
-          };
-          if (!history.find(h => h.period === currentPeriod)) {
-            history.unshift(record);
-            if (history.length > 10) history.pop();
-          }
-
           // 更新推荐显示
           document.getElementById("recommend").innerHTML = `
             <h4>下一期推荐数字：<span class="numbers">${recStr}</span></h4>
             <p>可能结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
           `;
 
-          // 更新最近开奖号码，标注推荐对码
-          const updatedRecentHTML = records.slice(0, 5).map(item => {
+          // 更新最近开奖号码，带上推荐的数字和命中状态
+          const updatedRecentHTML = records.slice(0, 20).map(item => {
             const numbersArray = item.openNumber.split(',').map(Number);
             const recommendedHit = recommendedNums.some(n => numbersArray.includes(n));
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime} ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : ''}</li>`;
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
 
-          // 展示历史记录
-          document.getElementById("history").innerHTML = `
-            <h4>命中记录（最近10期）：</h4>
-            <ul>${history.map(h => `<li>${h.period} - 推荐：${h.rec} - <b>${h.result}</b></li>`).join('')}</ul>
-          `;
         })
         .catch(error => {
           console.error("数据获取失败:", error);
