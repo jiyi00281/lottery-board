@@ -33,9 +33,10 @@
           const records = res.data || [];
           if (records.length < 2) return;
 
-          // 显示最近 20 期开奖号码
+          // 显示最近的开奖号码，带上之前的推荐数字
           const recentHTML = records.slice(0, 20).map(item => {
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
+            if (!item.rec) item.rec = ''; // 确保每个记录都有一个推荐字段
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${item.rec}</span> - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
@@ -85,12 +86,11 @@
             <p>可能结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
           `;
 
-          // 更新最近开奖号码，带上推荐的数字和命中状态
+          // 将推荐结果和命中状态添加到每条记录中
           const updatedRecentHTML = records.slice(0, 20).map(item => {
             const numbersArray = item.openNumber.split(',').map(Number);
-            const recommendedHit = item.rec && numbersArray.some(n => item.rec.split(',').map(Number).includes(n));
-            const recommendedStr = item.rec || recStr; // 保持之前的推荐号码
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recommendedStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
+            const recommendedHit = numbersArray.some(n => recommendedNums.includes(n));
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
 
