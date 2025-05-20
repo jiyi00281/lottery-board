@@ -62,6 +62,21 @@
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
           const data = records.map(d => d.openNumber.split(',').map(Number));
+          
+          // 频率计算
+          const frequency = {};
+          data.flat().forEach(num => {
+            if (!frequency[num]) frequency[num] = 0;
+            frequency[num]++;
+          });
+
+          // 热点和冷门号码
+          const sortedNumbers = Object.entries(frequency)
+            .sort((a, b) => b[1] - a[1])
+            .map(item => Number(item[0]));
+
+          const hotNumbers = sortedNumbers.slice(0, 3); // 选择出现频率最高的3个
+          const coldNumbers = sortedNumbers.slice(-3); // 选择出现频率最低的3个
 
           // 趋势分析
           const trend = {};
@@ -90,17 +105,8 @@
             <ul>${trendHTML}</ul>
           `;
 
-          // 推荐逻辑：从升温组中取一组
-          let selectedGroup = Object.entries(directions).find(([_, dir]) => dir === "升温趋势");
-          let recommendedNums = [];
-
-          if (selectedGroup) {
-            const [groupKey] = selectedGroup;
-            recommendedNums = pairs[groupKey];
-          } else {
-            // 无升温组，默认选 A
-            recommendedNums = pairs["A"];
-          }
+          // 综合推荐逻辑
+          const recommendedNums = [...new Set([...hotNumbers, ...coldNumbers])].slice(0, 3); // 选择热、冷各一，最多三个号码
 
           // 比较推荐与最新开奖
           const latestData = data[0];
@@ -125,10 +131,11 @@
             <p>可能结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
           `;
 
-          // 更新最近开奖号码，标注推荐结果
+          // 更新最近开奖号码，标注推荐对码
           const updatedRecentHTML = records.slice(0, 5).map(item => {
-            const latestHit = item.openNumber.split(',').map(Number).some(n => recommendedNums.includes(n));
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime} - <strong class="highlight">${latestHit ? '推荐命中' : '未命中'}</strong></li>`;
+            const numbersArray = item.openNumber.split(',').map(Number);
+            const recommendedHit = recommendedNums.some(n => numbersArray.includes(n));
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime} ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : ''}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
 
