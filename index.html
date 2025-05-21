@@ -39,7 +39,7 @@
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
           // 获取当前百位数字
-          const currentBet = records[0].openNumber.split(',')[0].trim(); // 假设百位为开奖号码的第一位
+          const currentBet = records[0].openNumber.split(',')[0].trim();
           
           // 执行出号逻辑
           const fixedNumbers = fixedCodePrediction(currentBet);
@@ -47,7 +47,7 @@
           const finalPrediction = comprehensivePrediction(fixedNumbers, sizeNumbers);
 
           // 输出推荐数字
-          const recStr = finalPrediction.length > 0 ? finalPrediction.join(", ") : "无";
+          const recStr = finalPrediction.length > 0 ? finalPrediction[0] : "无";
           document.getElementById("recommend").innerHTML = `
             <h4>下期推荐数字：<span class="numbers">${recStr}</span></h4>
           `;
@@ -85,9 +85,7 @@
           // 找到对码
           digits.forEach(num => {
             const match = 9 - num; // 对码是9减去当前数
-            if (match >= 0 && match <= 9) {
-              foundNumbers.add(match);
-            }
+            foundNumbers.add(match);
           });
         }
       });
@@ -96,7 +94,9 @@
     }
 
     function comprehensivePrediction(fixedNumbers, sizeNumbers) {
-      return fixedNumbers.filter(num => sizeNumbers.includes(num));
+      const commonNumbers = fixedNumbers.filter(num => sizeNumbers.includes(num));
+      // 只返回第一个重复出现的号码作为最后结果
+      return commonNumbers.length > 0 ? [commonNumbers[0]] : [];
     }
 
     fetchAndAnalyze();
