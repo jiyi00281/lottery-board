@@ -24,7 +24,6 @@
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
-    let history = [];
 
     function fetchAndAnalyze() {
       fetch(API)
@@ -33,85 +32,58 @@
           const records = res.data || [];
           if (records.length < 2) return;
 
-          // 显示最近的开奖号码，带上之前的推荐数字
+          // 显示最近的开奖号码
           const recentHTML = records.slice(0, 20).map(item => {
-            if (!item.rec) item.rec = ''; // 确保每个记录都有一个推荐字段
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${item.rec}</span> - ${item.openTime}</li>`;
+            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
-          const data = records.map(d => d.openNumber.split(',').map(Number));
-          const frequency = {};
-          const trends = {};
+          // 获取当前百位数字
+          const currentBet = records[0].openNumber.split(',')[0]; // 假设百位为开奖号码的第一位
+          
+          // 执行出号逻辑
+          const fixedNumbers = fixedCodePrediction(currentBet);
+          const sizeNumbers = sizeAlternatePrediction(records);
+          const finalPrediction = comprehensivePrediction(fixedNumbers, sizeNumbers);
 
-          // 频率统计
-          data.flat().forEach(num => {
-            if (!frequency[num]) frequency[num] = 0;
-            frequency[num]++;
-          });
-
-          // 计算趋势
-          const trendLength = 5; // 设置用于趋势判断的期数
-          for (let i = 0; i < trendLength && i < records.length; i++) {
-            const numbers = records[i].openNumber.split(',').map(Number);
-            numbers.forEach(num => {
-              if (!trends[num]) trends[num] = 0;
-              trends[num]++;
-            });
-          }
-
-          // 排序获取频率最高和趋势最高的数字
-          const sortedFrequency = Object.entries(frequency)
-            .sort((a, b) => b[1] - a[1])
-            .map(item => Number(item[0]));
-
-          const sortedTrends = Object.entries(trends)
-            .sort((a, b) => b[1] - a[1])
-            .map(item => Number(item[0]));
-
-          // 整合推荐：选择一个热点，一个趋势数字
-          const recommendedNums = [];
-          recommendedNums.push(sortedFrequency[0]); // 添加频率最高的数字
-          if (sortedTrends.length > 0) {
-            recommendedNums.push(sortedTrends[0]); // 添加趋势数字
-          }
-
-          // 更新推荐显示
-          const recStr = recommendedNums.join(" / ");
-          const latestData = data[0];
-          const hit = latestData.some(n => recommendedNums.includes(n));
-
+          const recStr = finalPrediction.join(", ");
           document.getElementById("recommend").innerHTML = `
-            <h4>下一期推荐数字：<span class="numbers">${recStr}</span></h4>
-            <p>可能结果：<strong class="highlight">${hit ? '命中' : '未中'}</strong></p>
+            <h4>下期推荐数字：<span class="numbers">${recStr || "无"}</span></h4>
           `;
-
-          // 将推荐结果和命中状态添加到每条记录中
-          const updatedRecentHTML = records.slice(0, 20).map(item => {
-            const numbersArray = item.openNumber.split(',').map(Number);
-            const recommendedHit = numbersArray.some(n => recommendedNums.includes(n));
-            return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - 推荐：<span class="numbers">${recStr}</span> - ${recommendedHit ? '<strong class="highlight">（推荐对码命中）</strong>' : '<strong>（推荐对码未中）</strong>'} - ${item.openTime}</li>`;
-          }).join('');
-          document.getElementById("recent-lottery").innerHTML = updatedRecentHTML;
-
-          // 添加命中记录至历史数据
-          const currentPeriod = records[0].betNo;
-          const record = {
-            period: currentPeriod,
-            rec: recStr,
-            result: hit ? '命中' : '未中'
-          };
-
-          // 只更新历史记录，保留之前的记录
-          if (!history.find(h => h.period === currentPeriod)) {
-            history.unshift(record);
-            if (history.length > 10) history.pop();
-          }
-
         })
         .catch(error => {
           console.error("数据获取失败:", error);
         });
+    }
+
+    function fixedCodePrediction(baiwei) {
+      const fixedMap = {
+        '09': [3, 4, 5, 6],
+        '18': [2, 4, 5, 7],
+        '27': [1, 3, 6, 8],
+        '36': [0, 2, 7, 9],
+        '45': [0, 1, 8, 9],
+      };
+      return fixedMap[baiwei] || [];
+    }
+
+    function sizeAlternatePrediction(records) {
+      const large = new Set([5, 6, 7, 8, 9]);
+      const small = new Set([0, 1, 2, 3, 4]);
+      const foundNumbers = new Set();
+
+      records.forEach(item => {
+        const digits = new Set(item.openNumber.split(',').map(Number));
+        if ([...digits].some(num => large.has(num)) && [...digits].some(num => small.has(num))) {
+          digits.forEach(num => foundNumbers.add(num));
+        }
+      });
+
+      return Array.from(foundNumbers);
+    }
+
+    function comprehensivePrediction(fixedNumbers, sizeNumbers) {
+      return fixedNumbers.filter(num => sizeNumbers.includes(num));
     }
 
     fetchAndAnalyze();
