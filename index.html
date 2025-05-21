@@ -39,16 +39,17 @@
           document.getElementById("recent-lottery").innerHTML = recentHTML;
 
           // 获取当前百位数字
-          const currentBet = records[0].openNumber.split(',')[0]; // 假设百位为开奖号码的第一位
+          const currentBet = records[0].openNumber.split(',')[0].trim(); // 假设百位为开奖号码的第一位
           
           // 执行出号逻辑
           const fixedNumbers = fixedCodePrediction(currentBet);
           const sizeNumbers = sizeAlternatePrediction(records);
           const finalPrediction = comprehensivePrediction(fixedNumbers, sizeNumbers);
 
-          const recStr = finalPrediction.join(", ");
+          // 如果没有找到推荐数字，则通知
+          const recStr = finalPrediction.length > 0 ? finalPrediction.join(", ") : "无";
           document.getElementById("recommend").innerHTML = `
-            <h4>下期推荐数字：<span class="numbers">${recStr || "无"}</span></h4>
+            <h4>下期推荐数字：<span class="numbers">${recStr}</span></h4>
           `;
         })
         .catch(error => {
@@ -64,7 +65,7 @@
         '36': [0, 2, 7, 9],
         '45': [0, 1, 8, 9],
       };
-      return fixedMap[baiwei] || [];
+      return fixedMap[baiwei] || []; // 如果没有匹配的百位返回空数组
     }
 
     function sizeAlternatePrediction(records) {
@@ -74,6 +75,7 @@
 
       records.forEach(item => {
         const digits = new Set(item.openNumber.split(',').map(Number));
+        // 查找是否存在大号和小号
         if ([...digits].some(num => large.has(num)) && [...digits].some(num => small.has(num))) {
           digits.forEach(num => foundNumbers.add(num));
         }
