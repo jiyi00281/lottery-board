@@ -21,6 +21,10 @@
     <h4>最近开奖号码（前20期）</h4>
     <ul id="recent-lottery"></ul>
   </div>
+  <div class="section">
+    <h4>中奖记录</h4>
+    <ul id="winning-numbers"></ul>
+  </div>
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
@@ -37,6 +41,14 @@
             return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
           }).join('');
           document.getElementById("recent-lottery").innerHTML = recentHTML;
+
+          // 显示中奖记录
+          const winningHTML = records
+            .filter(item => isWinningNumber(item.openNumber))
+            .map(item => {
+              return `<li>${item.betNo} - <span class="numbers">${item.openNumber}</span> - ${item.openTime}</li>`;
+            }).join('');
+          document.getElementById("winning-numbers").innerHTML = winningHTML || "<li>无中奖记录</li>";
 
           // 获取当前百位数字
           const currentBet = records[0].openNumber.split(',')[0].trim();
@@ -55,6 +67,13 @@
         .catch(error => {
           console.error("数据获取失败:", error);
         });
+    }
+
+    function isWinningNumber(numbers) {
+      // 在这里定义中奖的逻辑，例如，如果包括特定数字则视为中奖
+      const winningDigits = [0, 1, 2]; // 举例：认为包含0, 1, 2的开奖号码为中奖
+      const digits = numbers.split(',').map(Number);
+      return digits.some(num => winningDigits.includes(num));
     }
 
     function fixedCodePrediction(baiwei) {
