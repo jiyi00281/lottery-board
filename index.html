@@ -28,10 +28,10 @@
   <script>
     // 模拟的历史开奖数据
     const recentData = [
-      { hash: 'THVK419c8ND5x', betNo: '20240717001' },
-      { hash: 'ABCDEF12345', betNo: '20240717002' },
-      { hash: '9876543210THVK', betNo: '20240717003' },
-      // 增加更多历史数据以提高预测的准确性...
+      { hash: 'THVK419c8ND5x', betNo: '20240717001', openTime: '2024-07-17 00:01' },
+      { hash: 'ABCDEF12345', betNo: '20240717002', openTime: '2024-07-17 00:02' },
+      { hash: '9876543210THVK', betNo: '20240717003', openTime: '2024-07-17 00:03' },
+      // 更多模拟数据...
     ];
 
     function extractNumbersFromHash(hash) {
@@ -42,35 +42,29 @@
     function generateRecentNumbers() {
       const recentHTML = recentData.map(item => {
         const numbers = extractNumbersFromHash(item.hash).join(', ');
-        return `<li>期号: ${item.betNo} - 开奖号码: <span class="numbers">${numbers}</span></li>`;
+        return `<li>期号: ${item.betNo} - 开奖时间: ${item.openTime} - 开奖号码: <span class="numbers">${numbers}</span></li>`;
       }).join('');
       document.getElementById("recent-lottery").innerHTML = recentHTML;
     }
 
     function predictNextNumbers() {
-      const numberCount = {};
       const allNumbers = [];
-
       recentData.forEach(item => {
         const numbers = extractNumbersFromHash(item.hash);
-        numbers.forEach(num => {
-          allNumbers.push(num);
-          numberCount[num] = (numberCount[num] || 0) + 1;
-        });
+        allNumbers.push(...numbers);
       });
 
-      // 计算每个数字的出现概率
-      const totalEntries = allNumbers.length;
-      const probabilities = Object.entries(numberCount).map(([num, count]) => ({
-        num: Number(num),
-        probability: count / totalEntries
-      }));
+      const numberCount = {};
+      allNumbers.forEach(num => {
+        numberCount[num] = (numberCount[num] || 0) + 1;
+      });
 
-      // 按照概率排序并取出最高的两个
-      const sortedProbabilities = probabilities.sort((a, b) => b.probability - a.probability).slice(0, 2);
-      const predictions = sortedProbabilities.map(item => item.num);
+      const sortedNumbers = Object.entries(numberCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5) // 获取出现频率最高的5个数字
+        .map(item => item[0]);
 
-      document.getElementById("prediction").innerHTML = predictions.join(', ');
+      document.getElementById("prediction").innerHTML = sortedNumbers.join(', ');
     }
 
     generateRecentNumbers();
