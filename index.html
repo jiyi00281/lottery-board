@@ -11,6 +11,7 @@
     .highlight { color: red; font-weight: bold; }
     .numbers { color: green; font-weight: bold; }
     .section { margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 0 5px #ccc; }
+    .status { font-size: 0.9em; color: gray; }
   </style>
 </head>
 <body>
@@ -28,6 +29,7 @@
 
   <script>
     const API = "https://api.duoqu.online/data?code=Tron-Fast&limit=50&key=rkjpugmlzj"; // 提取50期历史数据
+    const predictions = {}; // 用于记录预测数字的状态
 
     function fetchAndAnalyze() {
       fetch(API)
@@ -58,10 +60,14 @@
           const sizeNumbers = sizeAlternatePrediction(records);
           const finalPrediction = comprehensivePrediction(fixedNumbers, sizeNumbers);
 
-          // 输出推荐数字
+          // 更新预测状态
+          updatePredictionStatus(finalPrediction);
+
+          // 输出推荐数字及状态
           const recStr = finalPrediction.length > 0 ? finalPrediction[0] : "无";
+          const status = finalPrediction.length > 0 ? predictions[finalPrediction[0]] : "无预测";
           document.getElementById("recommend").innerHTML = `
-            <h4>下期推荐数字：<span class="numbers">${recStr}</span></h4>
+            <h4>下期推荐数字：<span class="numbers">${recStr}</span> - 状态: <span class="status">${status}</span></h4>
           `;
         })
         .catch(error => {
@@ -70,10 +76,26 @@
     }
 
     function isWinningNumber(numbers) {
-      // 在这里定义中奖的逻辑，例如，如果包括特定数字则视为中奖
+      // 在这里定义中奖的逻辑，例如，如果包含特定数字则视为中奖
       const winningDigits = [0, 1, 2]; // 举例：认为包含0, 1, 2的开奖号码为中奖
       const digits = numbers.split(',').map(Number);
       return digits.some(num => winningDigits.includes(num));
+    }
+
+    function updatePredictionStatus(prediction) {
+      prediction.forEach(num => {
+        // 初始化状态
+        if (!(num in predictions)) {
+          predictions[num] = "预测中";
+        }
+
+        // 检查是否中了，更新状态
+        if (isWinningNumber(records[0].openNumber)) {
+          predictions[num] = "中";
+        } else {
+          predictions[num] = "挂"; // 如果两期后未中则标记为挂
+        }
+      });
     }
 
     function fixedCodePrediction(baiwei) {
