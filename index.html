@@ -1,74 +1,116 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>哈希分分彩预测软件</title>
-  <style>
-    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
-    h2, h4 { color: #222; }
-    ul { line-height: 1.8; padding-left: 20px; }
-    .numbers { color: green; font-weight: bold; }
-    .section { margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 0 5px #ccc; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>秘密保持契約書（NDA）</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        header {
+            background-color: #C8102E; /* UBS 红色 */
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+        .logo {
+            height: 50px;
+            vertical-align: middle;
+        }
+        section {
+            margin: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #C8102E; /* UBS 红色 */
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+        }
+    </style>
 </head>
 <body>
-  <h2>哈希分分彩预测软件</h2>
 
-  <div class="section">
-    <h4>最近开奖号码</h4>
-    <ul id="recent-lottery"></ul>
-  </div>
-  
-  <div class="section">
-    <h4>下期预测数字</h4>
-    <p id="prediction"></p>
-  </div>
+<header>
+    <img src="logo.png" alt="UBS Logo" class="logo">
+    <h1>秘密保持契約書（NDA）</h1>
+</header>
 
-  <script>
-    // 模拟的历史开奖数据
-    const recentData = [
-      { hash: 'THVK419c8ND5x', betNo: '20240717001', openTime: '2024-07-17 00:01' },
-      { hash: 'ABCDEF12345', betNo: '20240717002', openTime: '2024-07-17 00:02' },
-      { hash: '9876543210THVK', betNo: '20240717003', openTime: '2024-07-17 00:03' },
-      // 更多模拟数据...
-    ];
+<section>
+    <h2>第5回FIREプロジェクトに関する情報開示</h2>
+    <p>本契約は、以下の当事者間で締結される。</p>
+    <p>
+        1. 当事者<br>
+        甲（情報提供者）：UBSのビジネス(株)<br>
+        住所：東京 ・ 千代田区大手町 1-2-1<br>
+        代表者名（任意）：五老 晴信<br>
+        乙（受領者／個人投資家）：<br>
+        住所：
+    </p>
 
-    function extractNumbersFromHash(hash) {
-      const numbers = hash.replace(/[^\d]/g, '').slice(-5).split('').map(Number);
-      return numbers;
-    }
+    <h2>2. 目的</h2>
+    <p>本契約は、甲が実施する「第5回FIREプロジェクト（PTS株式投資案件）」に関して、乙に提供する一切の非公開情報について、乙の秘密保持義務を明確にすることを目的とする。</p>
 
-    function generateRecentNumbers() {
-      const recentHTML = recentData.map(item => {
-        const numbers = extractNumbersFromHash(item.hash).join(', ');
-        return `<li>期号: ${item.betNo} - 开奖时间: ${item.openTime} - 开奖号码: <span class="numbers">${numbers}</span></li>`;
-      }).join('');
-      document.getElementById("recent-lottery").innerHTML = recentHTML;
-    }
+    <h2>3. 秘密情報の定義</h2>
+    <p>本契約における「秘密情報」とは、甲が乙に対して開示する以下の情報を含む全情報を指す。</p>
+    <ul>
+        <li>(1) プロジェクトの内容、対象銘柄、投資ロジック、取引スキーム、日程</li>
+        <li>(2) 過去実績、検証資料、戦略概要、事業構成、収支シミュレーション</li>
+        <li>(3) 参加条件、運用ルール、申し込み方法、各種説明資料</li>
+        <li>(4) 提携先企業の名称や実在に関する情報</li>
+        <li>(5) ミーティング、口頭説明、チャット、DM、プレゼン資料等を通じて伝えられた一切の情報</li>
+        <li>(6) 甲が秘密情報として指定したその他全ての情報</li>
+    </ul>
 
-    function predictNextNumbers() {
-      const allNumbers = [];
-      recentData.forEach(item => {
-        const numbers = extractNumbersFromHash(item.hash);
-        allNumbers.push(...numbers);
-      });
+    <h2>4. 秘密情報の取扱い</h2>
+    <p>乙は以下の義務を負う。</p>
+    <ol>
+        <li>(1) 秘密情報をいかなる第三者に開示・漏洩してはならない</li>
+        <li>(2) 秘密情報の複製、録音、転送、引用、要約、公開を行ってはならない</li>
+        <li>(3) SNS、ブログ、YouTube等を含む一切のメディアに情報を発信してはならない</li>
+        <li>(4) 提携先企業の名称・存在を第三者に伝えてはならない（黙秘義務）</li>
+        <li>(5) 秘密情報を甲との本プロジェクトの検討目的以外で利用してはならない</li>
+        <li>(6) 他人に情報を共有する場合は、甲の書面による事前承諾を得ること</li>
+    </ol>
 
-      const numberCount = {};
-      allNumbers.forEach(num => {
-        numberCount[num] = (numberCount[num] || 0) + 1;
-      });
+    <h2>5. 除外情報</h2>
+    <p>次に該当する情報は秘密情報に含まれない。</p>
+    <ul>
+        <li>(1) 開示時点で公知の情報</li>
+        <li>(2) 開示後、乙の責によらず公知となった情報</li>
+        <li>(3) 乙が開示前から正当に保有していたと証明できる情報</li>
+        <li>(4) 法令または裁判所の命令により開示を義務付けられた場合(この場合は甲に事前通知）</li>
+    </ul>
 
-      const sortedNumbers = Object.entries(numberCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5) // 获取出现频率最高的5个数字
-        .map(item => item[0]);
+    <h2>6. 契約期間</h2>
+    <p>本契約の有効期間は、契約締結日より2年間とする。ただし、契約期間中に開示された情報は、開示日から5年間、秘密保持義務を存続させる。</p>
 
-      document.getElementById("prediction").innerHTML = sortedNumbers.join(', ');
-    }
+    <h2>7. 情報の返還・削除</h2>
+    <p>甲が求めた場合、乙は秘密情報を遅滞なく返還または完全に消去し、証明書または報告書によりその旨を報告する。</p>
 
-    generateRecentNumbers();
-    predictNextNumbers();
-  </script>
+    <h2>8. 損害賠償</h2>
+    <p>乙が本契約に違反し、甲に損害を与えた場合、乙は直接損害に加え、間接損害（営業機会の逸失、社会的信用の棄損等）を含めて全てを賠償する。</p>
+
+    <h2>9. 準拠法および管轄</h2>
+    <p>本契約は日本法を準拠法とし、本契約に関して生じたすべての紛争については、甲の所在地を管轄する地方裁判所を第一審の専属的合意管轄裁判所とする。</p>
+</section>
+
+<footer>
+    <p>【契約締結日】</p>
+    <p>令和 7 年    月     日</p>
+    <p>【甲（情報提供者）】</p>
+    <p>氏名（法人の場合は会社名）：UBSのビジネス（株）</p>
+    <p>署名：五老 晴信</p>
+    <p>【乙（受領者／個人投資家）】 氏名：<br>署名：</p>
+</footer>
+
 </body>
 </html>
