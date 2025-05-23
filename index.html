@@ -17,10 +17,6 @@
             padding: 10px 20px;
             text-align: center;
         }
-        .logo {
-            height: 50px;
-            vertical-align: middle;
-        }
         section {
             margin: 20px;
             padding: 20px;
@@ -37,17 +33,24 @@
             margin-top: 40px;
             border-top: 1px solid #C8102E;
             padding-top: 10px;
+            position: relative;
         }
         .seal {
-            width: 100px;
-            display: block;
-            margin: 20px auto;
+            width: 120px;
+            position: absolute;
+            right: 20px;
+            top: -20px;
         }
-        input[type="text"] {
-            width: 80%;
+        .input-field {
+            border: none;
+            border-bottom: 1px solid #000;
+            width: 300px;
+            margin: 10px 0;
             padding: 5px;
-            margin: 5px 0;
-            border: 1px solid #ccc;
+            text-align: left;
+        }
+        .address {
+            margin: 20px 0;
         }
     </style>
 </head>
@@ -67,8 +70,10 @@
         代表者名（任意）：五老 晴信<br>
         乙（受領者／個人投資家）：<br>
         住所：<br>
-        <input type="text" placeholder="请填写姓名" /><br>
-        <input type="text" placeholder="请填写地址" />
+        <input type="text" class="input-field" placeholder="请填写姓名" /><br>
+        <div class="address">
+            <input type="text" class="input-field" placeholder="请填写地址" />
+        </div>
     </p>
 
     <h2>2. 目的</h2>
@@ -121,13 +126,13 @@
 <footer>
     <img src="seal.png" alt="印章" class="seal"> <!-- 这里替换为您的印章文件 -->
     <p>【契約締結日】</p>
-    <p>令和 7 年    月     日</p>
+    <p>令和 7 年 月 日</p>
     <p>【甲（情報提供者）】</p>
     <p>氏名（法人の場合は会社名）：UBSのビジネス（株）</p>
     <p>署名：五老 晴信</p>
     <p>【乙（受領者／個人投資家）】</p>
-    <p>氏名：<input type="text" placeholder="请填写姓名" /></p>
-    <p>署名：<input type="text" placeholder="请填写签名" /></p>
+    <p>氏名：<input type="text" class="input-field" placeholder="填入姓名" /></p>
+    <p>署名：<input type="text" class="input-field" placeholder="填入签名" /></p>
 </footer>
 
 </body>
