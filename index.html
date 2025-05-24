@@ -16,7 +16,7 @@
     <h2>动态投注策略预测</h2>
     
     <div>
-        <label>初始资金: <input type="number" id="initialBalance" value="1000"></label>
+        <label>初始资金: <input type="number" id="initialBalance" value="3000"></label>
         <label>总轮数: <input type="number" id="totalRounds" value="50"></label>
         <button onclick="initStrategy()">开始动态模拟</button>
     </div>
@@ -62,7 +62,7 @@
         class BettingStrategy {
             constructor(initialBalance) {
                 this.balance = initialBalance;
-                this.base_bet = 2.0;
+                this.base_bet = initialBalance * 0.05; // 初始投注金额为当前余额的5%
                 this.win_streak = 0;
                 this.loss_streak = 0;
                 this.total_rounds = 0;
@@ -73,11 +73,11 @@
 
                 let bet;
                 if (this.win_streak > 0) {
-                    bet = this.base_bet * (1 + this.win_streak * 0.1);
+                    bet = this.base_bet * (1 + this.win_streak * 0.1); // 连续赢增加
                 } else if (this.loss_streak > 0) {
-                    bet = this.base_bet * (1 - this.loss_streak * 0.15);
+                    bet = this.base_bet * (1 - this.loss_streak * 0.15); // 连续输减少
                 } else {
-                    bet = this.base_bet;
+                    bet = this.base_bet; // 初始投注金额
                 }
 
                 return Math.min(bet, max_bet); // 保证不超过最大下注限制
@@ -104,6 +104,9 @@
                     this.loss_streak += 1;
                     this.win_streak = 0;
                 }
+
+                // 每轮结束后更新基础下注金额
+                this.base_bet = this.calculate_bet_amount();
             }
 
             get_next_round_strategy() {
