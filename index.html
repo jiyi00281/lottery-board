@@ -18,6 +18,7 @@
     <div>
         <label>初始资金: <input type="number" id="initialBalance" value="3000"></label>
         <label>总轮数: <input type="number" id="totalRounds" value="50"></label>
+        <label>赔率: <input type="number" id="odds" value="1.95"></label>
         <button onclick="initStrategy()">开始动态模拟</button>
     </div>
 
@@ -93,10 +94,11 @@
             }
 
             update_result(result, actual_bet_amount) {
+                const odds = Number(document.getElementById('odds').value) || 1; // 获取赔率
                 this.total_rounds += 1;
 
                 if (result === "赢") {
-                    this.balance += Math.round(actual_bet_amount); // 更新余额，四舍五入
+                    this.balance += Math.round(actual_bet_amount * odds); // 计算赢得金额
                     this.win_streak += 1;
                     this.loss_streak = 0;
                 } else {
