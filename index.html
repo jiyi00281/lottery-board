@@ -1,157 +1,74 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>动态投注策略预测</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .win { color: green; }
-        .loss { color: red; }
-        .prediction { background-color: #f0f0f0; padding: 10px; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <h2>动态投注策略预测</h2>
+class BettingStrategy:
+    def __init__(self, initial_balance=100):
+        self.balance = initial_balance
+        self.base_bet = 2.0
+        self.win_streak = 0
+        self.loss_streak = 0
+        self.total_rounds = 0
+        
+    def calculate_bet_amount(self):
+        # 动态计算下注金额
+        max_bet = self.balance * 0.03
+        
+        if self.win_streak > 0:
+            # 连续赢增加下注
+            bet = self.base_bet * (1 + self.win_streak * 0.1)
+        elif self.loss_streak > 0:
+            # 连续输减少下注
+            bet = self.base_bet * (1 - self.loss_streak * 0.15)
+        else:
+            bet = self.base_bet
+        
+        # 确保不超过最大下注限制
+        return min(bet, max_bet)
     
-    <div>
-        <label>初始资金: <input type="number" id="initialBalance" value="1000"></label>
-        <label>总轮数: <input type="number" id="totalRounds" value="5"></label>
-        <button onclick="initStrategy()">开始动态模拟</button>
-    </div>
-
-    <div>
-        <h3>输入本轮结果</h3>
-        <label>本轮投注金额: <input type="number" id="betAmount" disabled></label>
-        <label>本轮投注方向: 
-            <select id="betDirection" disabled>
-                <option value="正向">单</option>
-                <option value="反向">双</option>
-            </select>
-        </label>
-        <label>本轮结果: 
-            <select id="roundResult" disabled>
-                <option value="赢">赢</option>
-                <option value="输">输</option>
-            </select>
-        </label>
-        <button onclick="processRound()" id="submitButton" disabled>提交本轮结果</button>
-    </div>
-
-    <table id="resultsTable">
-        <thead>
-            <tr>
-                <th>轮次</th>
-                <th>投注金额</th>
-                <th>投注方向</th>
-                <th>结果</th>
-                <th>当前余额</th>
-            </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-    </table>
-
-    <div id="nextPrediction" class="prediction"></div>
-
-    <script>
-        class DynamicBettingStrategy {
-            constructor(initialBalance) {
-                this.balance = initialBalance;
-                this.rounds = [];
-            }
-
-            calculateBetAmount(round, totalRounds) {
-                // 根据所剩轮数和余额动态调整下注金额
-                const baseBet = this.balance * (0.03 + (totalRounds - round) * 0.01);
-                return Math.min(baseBet, this.balance); // 确保不超过余额
-            }
-
-            determineBetDirection() {
-                // 默认随机选择投注方向
-                return Math.random() < 0.5 ? "单" : "双";
-            }
-
-            updateStrategy(result, betAmount) {
-                if (result === "赢") {
-                    this.balance += betAmount;
-                } else {
-                    this.balance -= betAmount;
-                }
-            }
-
-            predictNextRound(round, totalRounds) {
-                const betAmount = this.calculateBetAmount(round, totalRounds);
-                const betDirection = this.determineBetDirection();
-                return { betAmount, betDirection };
-            }
+    def determine_bet_direction(self):
+        # 基于概率和连续输赢确定投注方向
+        base_prob = 0.525  # 基础正向概率
+        
+        # 根据连续输赢调整概率
+        if self.win_streak > 2:
+            return "反向"
+        elif self.loss_streak > 2:
+            return "正向"
+        
+        # 随机生成方向
+        import random
+        return "正向" if random.random() < base_prob else "反向"
+    
+    def update_result(self, result, actual_bet_amount):
+        self.total_rounds += 1
+        
+        if result == "赢":
+            self.balance += actual_bet_amount
+            self.win_streak += 1
+            self.loss_streak = 0
+        else:
+            self.balance -= actual_bet_amount
+            self.loss_streak += 1
+            self.win_streak = 0
+        
+    def get_next_round_strategy(self):
+        # 计算下一轮的投注策略
+        bet_amount = self.calculate_bet_amount()
+        bet_direction = self.determine_bet_direction()
+        
+        return {
+            "投注金额": round(bet_amount, 2),
+            "投注方向": bet_direction,
+            "当前余额": round(self.balance, 2)
         }
 
-        let strategy;
-        let currentRound = 0;
+# 使用示例
+strategy = BettingStrategy()
 
-        function initStrategy() {
-            const initialBalance = Number(document.getElementById('initialBalance').value);
-            const totalRounds = Number(document.getElementById('totalRounds').value);
-            
-            strategy = new DynamicBettingStrategy(initialBalance);
-            currentRound = 0;
+# 第一轮
+first_round = strategy.get_next_round_strategy()
+print("第一轮策略:", first_round)
 
-            // 清空结果表和预测
-            document.getElementById('resultsBody').innerHTML = '';
-            document.getElementById('nextPrediction').innerHTML = '';
+# 输入第一轮结果
+strategy.update_result("赢", first_round["投注金额"])
 
-            // 启用输入并预测第一轮
-            updateInputs();
-        }
-
-        function updateInputs() {
-            const totalRounds = Number(document.getElementById('totalRounds').value);
-            if (currentRound < totalRounds) {
-                const nextRound = strategy.predictNextRound(currentRound, totalRounds);
-                document.getElementById('betAmount').value = nextRound.betAmount.toFixed(2);
-                document.getElementById('betDirection').value = nextRound.betDirection;
-                document.getElementById('betAmount').disabled = false;
-                document.getElementById('betDirection').disabled = false;
-                document.getElementById('roundResult').disabled = false;
-                document.getElementById('submitButton').disabled = false;
-            } else {
-                alert('所有轮次已完成！');
-                document.getElementById('submitButton').disabled = true;
-            }
-        }
-
-        function processRound() {
-            if (!strategy) {
-                alert('请先初始化策略');
-                return;
-            }
-
-            const betAmount = Number(document.getElementById('betAmount').value);
-            const betDirection = document.getElementById('betDirection').value;
-            const roundResult = document.getElementById('roundResult').value;
-
-            // 更新策略
-            strategy.updateStrategy(roundResult, betAmount);
-            currentRound++;
-
-            // 添加结果到表格
-            const resultsBody = document.getElementById('resultsBody');
-            const newRow = resultsBody.insertRow();
-            newRow.innerHTML = `
-                <td>${currentRound}</td>
-                <td>${betAmount}</td>
-                <td>${betDirection}</td>
-                <td class="${roundResult === '赢' ? 'win' : 'loss'}">${roundResult}</td>
-                <td>${strategy.balance.toFixed(2)}</td>
-            `;
-
-            // 预测下一轮
-            updateInputs();
-        }
-
-        // 初始化
-        initStrategy();
-    </script>
-</body>
-</html>
+# 第二轮
+second_round = strategy.get_next_round_strategy()
+print("第二轮策略:", second_round)
