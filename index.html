@@ -2,31 +2,56 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>动态投注策略模拟</title>
+    <title>动态投注策略预测</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        #results { background-color: #f4f4f4; padding: 10px; margin-top: 20px; }
-        .bet-info { margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #ddd; }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        #results { margin-top: 20px; }
+        .round { margin-bottom: 10px; padding: 10px; background-color: #f4f4f4; }
         .win { color: green; }
         .loss { color: red; }
     </style>
 </head>
 <body>
-    <h1>动态投注策略模拟</h1>
+    <h2>动态投注策略预测</h2>
+    
     <div>
         <label>初始资金: <input type="number" id="initialBalance" value="1000"></label>
-        <label>下注轮数: <input type="number" id="roundCount" value="10"></label>
-        <button onclick="startDynamicSimulation()">开始动态模拟</button>
     </div>
+
+    <div>
+        <label>本轮投注金额: <input type="number" id="betAmount" value="30"></label>
+    </div>
+
+    <div>
+        <label>本轮投注方向: 
+            <select id="betDirection">
+                <option value="正向">正向</option>
+                <option value="反向">反向</option>
+            </select>
+        </label>
+    </div>
+
+    <div>
+        <label>本轮结果: 
+            <select id="roundResult">
+                <option value="赢">赢</option>
+                <option value="输">输</option>
+            </select>
+        </label>
+    </div>
+
+    <button onclick="processRound()">提交本轮结果</button>
+
     <div id="results"></div>
 
     <script>
         class DynamicBettingStrategy {
             constructor(initialBalance) {
                 this.balance = initialBalance;
-                this.baseBet = 50;
+                this.baseBet = 30;
                 this.winStreak = 0;
                 this.lossStreak = 0;
+                this.rounds = [];
             }
 
             calculateBetAmount() {
@@ -45,23 +70,12 @@
             }
 
             determineBetDirection() {
-                // 动态调整下注方向
-                const baseProb = 0.525;
-                
                 if (this.winStreak > 2) return "反向";
                 if (this.lossStreak > 2) return "正向";
-
-                return Math.random() < baseProb ? "正向" : "反向";
+                return Math.random() < 0.525 ? "正向" : "反向";
             }
 
-            placeBet() {
-                const betAmount = this.calculateBetAmount();
-                const betDirection = this.determineBetDirection();
-                const winProbability = 0.55;
-
-                // 模拟输赢
-                const result = Math.random() < winProbability ? "赢" : "输";
-                
+            updateStrategy(result, betAmount) {
                 if (result === "赢") {
                     this.balance += betAmount;
                     this.winStreak++;
@@ -71,60 +85,57 @@
                     this.lossStreak++;
                     this.winStreak = 0;
                 }
+            }
 
+            predictNextRound() {
                 return {
-                    betAmount: Number(betAmount.toFixed(2)),
-                    betDirection,
-                    result,
-                    balance: Number(this.balance.toFixed(2))
+                    预测投注金额: Number(this.calculateBetAmount().toFixed(2)),
+                    预测投注方向: this.determineBetDirection(),
+                    当前余额: Number(this.balance.toFixed(2))
                 };
             }
         }
 
-        function startDynamicSimulation() {
+        let strategy;
+
+        function initStrategy() {
             const initialBalance = Number(document.getElementById('initialBalance').value);
-            const roundCount = Number(document.getElementById('roundCount').value);
-            const resultsDiv = document.getElementById('results');
-            
-            // 清空之前的结果
-            resultsDiv.innerHTML = `<div>初始资金: ${initialBalance}</div>`;
+            strategy = new DynamicBettingStrategy(initialBalance);
+            document.getElementById('results').innerHTML = `初始资金: ${initialBalance}`;
+        }
 
-            // 创建策略实例
-            const strategy = new DynamicBettingStrategy(initialBalance);
-
-            // 动态模拟下注
-            function simulateRound(currentRound) {
-                if (currentRound > roundCount) {
-                    // 模拟结束
-                    resultsDiv.innerHTML += `<div style="font-weight:bold;">最终资金: ${strategy.balance.toFixed(2)}</div>`;
-                    return;
-                }
-
-                // 执行下注
-                const roundResult = strategy.placeBet();
-
-                // 显示本轮结果
-                const roundDiv = document.createElement('div');
-                roundDiv.classList.add('bet-info');
-                roundDiv.classList.add(roundResult.result === '赢' ? 'win' : 'loss');
-                roundDiv.innerHTML = `
-                    第${currentRound}轮:
-                    投注金额: ${roundResult.betAmount} | 
-                    投注方向: ${roundResult.betDirection} | 
-                    结果: ${roundResult.result} | 
-                    当前余额: ${roundResult.balance}
-                `;
-                resultsDiv.appendChild(roundDiv);
-
-                // 延迟执行下一轮，模拟动态过程
-                setTimeout(() => {
-                    simulateRound(currentRound + 1);
-                }, 500);  // 500毫秒间隔
+        function processRound() {
+            if (!strategy) {
+                initStrategy();
             }
 
-            // 开始模拟
-            simulateRound(1);
+            const betAmount = Number(document.getElementById('betAmount').value);
+            const betDirection = document.getElementById('betDirection').value;
+            const roundResult = document.getElementById('roundResult').value;
+
+            // 更新策略
+            strategy.updateStrategy(roundResult, betAmount);
+
+            // 记录本轮结果
+            const roundInfo = `
+                <div class="round ${roundResult === '赢' ? 'win' : 'loss'}">
+                    第${strategy.rounds.length + 1}轮:<br>
+                    投注金额: ${betAmount}<br>
+                    投注方向: ${betDirection}<br>
+                    结果: ${roundResult}<br>
+                    当前余额: ${strategy.balance.toFixed(2)}
+                </div>
+            `;
+            document.getElementById('results').innerHTML += roundInfo;
+
+            // 预测下一轮
+            const nextRound = strategy.predictNextRound();
+            document.getElementById('betAmount').value = nextRound.预测投注金额;
+            document.getElementById('betDirection').value = nextRound.预测投注方向;
         }
+
+        // 初始化
+        initStrategy();
     </script>
 </body>
 </html>
