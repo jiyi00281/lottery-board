@@ -1,139 +1,115 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>秘密保持契約書（NDA）</title>
+    <title>投注策略模拟</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 20px;
-            background-color: #f9f9f9;
-        }
-        header {
-            background-color: #C8102E; /* UBS 红色 */
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-        }
-        section {
-            margin: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h2 {
-            color: #C8102E; /* UBS 红色 */
-            margin-top: 30px;
-        }
-        footer {
-            text-align: center;
-            margin-top: 40px;
-            border-top: 1px solid #C8102E;
-            padding-top: 10px;
-            position: relative;
-        }
-        .seal {
-            width: 120px;
-            position: absolute;
-            right: 20px;
-            top: -20px;
-        }
-        .input-field {
-            border: none;
-            border-bottom: 1px solid #000;
-            width: 300px;
-            margin: 10px 0;
-            padding: 5px;
-            text-align: left;
-        }
-        .address {
-            margin: 20px 0;
-        }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        #results { background-color: #f4f4f4; padding: 10px; margin-top: 20px; }
     </style>
 </head>
 <body>
+    <h1>投注策略模拟</h1>
+    <button onclick="runSimulation()">开始模拟</button>
+    <div id="results"></div>
 
-<header>
-    <h1>秘密保持契約書（NDA）</h1>
-</header>
+    <script>
+        class BettingStrategy {
+            constructor(initialBalance = 1000) {
+                this.balance = initialBalance;
+                this.baseBet = 50.0;
+                this.winStreak = 0;
+                this.lossStreak = 0;
+                this.totalRounds = 0;
+            }
 
-<section>
-    <h2>第5回FIREプロジェクトに関する情報開示</h2>
-    <p>本契約は、以下の当事者間で締結される。</p>
-    <p>
-        1. 当事者<br>
-        甲（情報提供者）：UBSのビジネス(株)<br>
-        住所：東京 ・ 千代田区大手町 1-2-1<br>
-        代表者名（任意）：五老 晴信<br>
-        乙（受領者／個人投資家）：<br>
-        住所：<br>
-        <input type="text" class="input-field" placeholder="请填写姓名" /><br>
-        <div class="address">
-            <input type="text" class="input-field" placeholder="请填写地址" />
-        </div>
-    </p>
+            calculateBetAmount() {
+                const maxBet = this.balance * 0.03;
+                let bet;
 
-    <h2>2. 目的</h2>
-    <p>本契約は、甲が実施する「第5回FIREプロジェクト（PTS株式投資案件）」に関して、乙に提供する一切の非公開情報について、乙の秘密保持義務を明確にすることを目的とする。</p>
+                if (this.winStreak > 0) {
+                    bet = this.baseBet * (1 + this.winStreak * 0.1);
+                } else if (this.lossStreak > 0) {
+                    bet = this.baseBet * (1 - this.lossStreak * 0.15);
+                } else {
+                    bet = this.baseBet;
+                }
 
-    <h2>3. 秘密情報の定義</h2>
-    <p>本契約における「秘密情報」とは、甲が乙に対して開示する以下の情報を含む全情報を指す。</p>
-    <ul>
-        <li>(1) プロジェクトの内容、対象銘柄、投資ロジック、取引スキーム、日程</li>
-        <li>(2) 過去実績、検証資料、戦略概要、事業構成、収支シミュレーション</li>
-        <li>(3) 参加条件、運用ルール、申し込み方法、各種説明資料</li>
-        <li>(4) 提携先企業の名称や実在に関する情報</li>
-        <li>(5) ミーティング、口頭説明、チャット、DM、プレゼン資料等を通じて伝えられた一切の情報</li>
-        <li>(6) 甲が秘密情報として指定したその他全ての情報</li>
-    </ul>
+                return Math.min(bet, maxBet);
+            }
 
-    <h2>4. 秘密情報の取扱い</h2>
-    <p>乙は以下の義務を負う。</p>
-    <ol>
-        <li>(1) 秘密情報をいかなる第三者に開示・漏洩してはならない</li>
-        <li>(2) 秘密情報の複製、録音、転送、引用、要約、公開を行ってはならない</li>
-        <li>(3) SNS、ブログ、YouTube等を含む一切のメディアに情報を発信してはならない</li>
-        <li>(4) 提携先企業の名称・存在を第三者に伝えてはならない（黙秘義務）</li>
-        <li>(5) 秘密情報を甲との本プロジェクトの検討目的以外で利用してはならない</li>
-        <li>(6) 他人に情報を共有する場合は、甲の書面による事前承諾を得ること</li>
-    </ol>
+            determineBetDirection() {
+                const baseProb = 0.525;
 
-    <h2>5. 除外情報</h2>
-    <p>次に該当する情報は秘密情報に含まれない。</p>
-    <ul>
-        <li>(1) 開示時点で公知の情報</li>
-        <li>(2) 開示後、乙の責によらず公知となった情報</li>
-        <li>(3) 乙が開示前から正当に保有していたと証明できる情報</li>
-        <li>(4) 法令または裁判所の命令により開示を義務付けられた場合(この場合は甲に事前通知）</li>
-    </ul>
+                if (this.winStreak > 2) return "反向";
+                if (this.lossStreak > 2) return "正向";
 
-    <h2>6. 契約期間</h2>
-    <p>本契約の有効期間は、契約締結日より2年間とする。ただし、契約期間中に開示された情報は、開示日から5年間、秘密保持義務を存続させる。</p>
+                return Math.random() < baseProb ? "正向" : "反向";
+            }
 
-    <h2>7. 情報の返還・削除</h2>
-    <p>甲が求めた場合、乙は秘密情報を遅滞なく返還または完全に消去し、証明書または報告書によりその旨を報告する。</p>
+            updateResult(result, actualBetAmount) {
+                this.totalRounds++;
 
-    <h2>8. 損害賠償</h2>
-    <p>乙が本契約に違反し、甲に損害を与えた場合、乙は直接損害に加え、間接損害（営業機会の逸失、社会的信用の棄損等）を含めて全てを賠償する。</p>
+                if (result === "赢") {
+                    this.balance += actualBetAmount;
+                    this.winStreak++;
+                    this.lossStreak = 0;
+                } else {
+                    this.balance -= actualBetAmount;
+                    this.lossStreak++;
+                    this.winStreak = 0;
+                }
+            }
 
-    <h2>9. 準拠法および管轄</h2>
-    <p>本契約は日本法を準拠法とし、本契約に関して生じたすべての紛争については、甲の所在地を管轄する地方裁判所を第一審の専属的合意管轄裁判所とする。</p>
-</section>
+            getNextRoundStrategy() {
+                const betAmount = this.calculateBetAmount();
+                const betDirection = this.determineBetDirection();
 
-<footer>
-    <img src="seal.png" alt="印章" class="seal"> <!-- 这里替换为您的印章文件 -->
-    <p>【契約締結日】</p>
-    <p>令和 7 年 月 日</p>
-    <p>【甲（情報提供者）】</p>
-    <p>氏名（法人の場合は会社名）：UBSのビジネス（株）</p>
-    <p>署名：五老 晴信</p>
-    <p>【乙（受領者／個人投資家）】</p>
-    <p>氏名：<input type="text" class="input-field" placeholder="填入姓名" /></p>
-    <p>署名：<input type="text" class="input-field" placeholder="填入签名" /></p>
-</footer>
+                return {
+                    投注金额: Number(betAmount.toFixed(2)),
+                    投注方向: betDirection,
+                    当前余额: Number(this.balance.toFixed(2))
+                };
+            }
+        }
 
+        function simulateBettingRounds(rounds = 10) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = ''; // 清空之前的结果
+
+            const strategy = new BettingStrategy(1000);
+            let output = `初始资金: ${strategy.balance}<br>`;
+
+            for (let round = 1; round <= rounds; round++) {
+                // 获取本轮策略
+                const roundStrategy = strategy.getNextRoundStrategy();
+                
+                // 模拟输赢（55%概率赢）
+                const result = Math.random() < 0.55 ? "赢" : "输";
+                
+                // 更新策略
+                strategy.updateResult(result, roundStrategy.投注金额);
+
+                // 记录结果
+                output += `<br>第${round}轮:<br>`;
+                output += `投注金额: ${roundStrategy.投注金额}<br>`;
+                output += `投注方向: ${roundStrategy.投注方向}<br>`;
+                output += `结果: ${result}<br>`;
+                output += `当前余额: ${strategy.balance}<br>`;
+            }
+
+            output += `<br>最终资金: ${strategy.balance}`;
+            resultsDiv.innerHTML = output;
+        }
+
+        function runSimulation() {
+            // 设置随机数种子
+            Math.seedrandom && Math.seedrandom('42');
+            simulateBettingRounds();
+        }
+    </script>
+
+    <!-- 可选：引入随机数种子库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 </body>
 </html>
