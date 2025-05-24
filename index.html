@@ -2,25 +2,31 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>投注策略模拟</title>
+    <title>动态投注策略模拟</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         #results { background-color: #f4f4f4; padding: 10px; margin-top: 20px; }
+        .bet-info { margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #ddd; }
+        .win { color: green; }
+        .loss { color: red; }
     </style>
 </head>
 <body>
-    <h1>投注策略模拟</h1>
-    <button onclick="runSimulation()">开始模拟</button>
+    <h1>动态投注策略模拟</h1>
+    <div>
+        <label>初始资金: <input type="number" id="initialBalance" value="1000"></label>
+        <label>下注轮数: <input type="number" id="roundCount" value="10"></label>
+        <button onclick="startDynamicSimulation()">开始动态模拟</button>
+    </div>
     <div id="results"></div>
 
     <script>
-        class BettingStrategy {
-            constructor(initialBalance = 1000) {
+        class DynamicBettingStrategy {
+            constructor(initialBalance) {
                 this.balance = initialBalance;
-                this.baseBet = 50.0;
+                this.baseBet = 50;
                 this.winStreak = 0;
                 this.lossStreak = 0;
-                this.totalRounds = 0;
             }
 
             calculateBetAmount() {
@@ -39,77 +45,86 @@
             }
 
             determineBetDirection() {
+                // 动态调整下注方向
                 const baseProb = 0.525;
-
+                
                 if (this.winStreak > 2) return "反向";
                 if (this.lossStreak > 2) return "正向";
 
                 return Math.random() < baseProb ? "正向" : "反向";
             }
 
-            updateResult(result, actualBetAmount) {
-                this.totalRounds++;
+            placeBet() {
+                const betAmount = this.calculateBetAmount();
+                const betDirection = this.determineBetDirection();
+                const winProbability = 0.55;
 
+                // 模拟输赢
+                const result = Math.random() < winProbability ? "赢" : "输";
+                
                 if (result === "赢") {
-                    this.balance += actualBetAmount;
+                    this.balance += betAmount;
                     this.winStreak++;
                     this.lossStreak = 0;
                 } else {
-                    this.balance -= actualBetAmount;
+                    this.balance -= betAmount;
                     this.lossStreak++;
                     this.winStreak = 0;
                 }
-            }
-
-            getNextRoundStrategy() {
-                const betAmount = this.calculateBetAmount();
-                const betDirection = this.determineBetDirection();
 
                 return {
-                    投注金额: Number(betAmount.toFixed(2)),
-                    投注方向: betDirection,
-                    当前余额: Number(this.balance.toFixed(2))
+                    betAmount: Number(betAmount.toFixed(2)),
+                    betDirection,
+                    result,
+                    balance: Number(this.balance.toFixed(2))
                 };
             }
         }
 
-        function simulateBettingRounds(rounds = 10) {
+        function startDynamicSimulation() {
+            const initialBalance = Number(document.getElementById('initialBalance').value);
+            const roundCount = Number(document.getElementById('roundCount').value);
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = ''; // 清空之前的结果
+            
+            // 清空之前的结果
+            resultsDiv.innerHTML = `<div>初始资金: ${initialBalance}</div>`;
 
-            const strategy = new BettingStrategy(1000);
-            let output = `初始资金: ${strategy.balance}<br>`;
+            // 创建策略实例
+            const strategy = new DynamicBettingStrategy(initialBalance);
 
-            for (let round = 1; round <= rounds; round++) {
-                // 获取本轮策略
-                const roundStrategy = strategy.getNextRoundStrategy();
-                
-                // 模拟输赢（55%概率赢）
-                const result = Math.random() < 0.55 ? "赢" : "输";
-                
-                // 更新策略
-                strategy.updateResult(result, roundStrategy.投注金额);
+            // 动态模拟下注
+            function simulateRound(currentRound) {
+                if (currentRound > roundCount) {
+                    // 模拟结束
+                    resultsDiv.innerHTML += `<div style="font-weight:bold;">最终资金: ${strategy.balance.toFixed(2)}</div>`;
+                    return;
+                }
 
-                // 记录结果
-                output += `<br>第${round}轮:<br>`;
-                output += `投注金额: ${roundStrategy.投注金额}<br>`;
-                output += `投注方向: ${roundStrategy.投注方向}<br>`;
-                output += `结果: ${result}<br>`;
-                output += `当前余额: ${strategy.balance}<br>`;
+                // 执行下注
+                const roundResult = strategy.placeBet();
+
+                // 显示本轮结果
+                const roundDiv = document.createElement('div');
+                roundDiv.classList.add('bet-info');
+                roundDiv.classList.add(roundResult.result === '赢' ? 'win' : 'loss');
+                roundDiv.innerHTML = `
+                    第${currentRound}轮:
+                    投注金额: ${roundResult.betAmount} | 
+                    投注方向: ${roundResult.betDirection} | 
+                    结果: ${roundResult.result} | 
+                    当前余额: ${roundResult.balance}
+                `;
+                resultsDiv.appendChild(roundDiv);
+
+                // 延迟执行下一轮，模拟动态过程
+                setTimeout(() => {
+                    simulateRound(currentRound + 1);
+                }, 500);  // 500毫秒间隔
             }
 
-            output += `<br>最终资金: ${strategy.balance}`;
-            resultsDiv.innerHTML = output;
-        }
-
-        function runSimulation() {
-            // 设置随机数种子
-            Math.seedrandom && Math.seedrandom('42');
-            simulateBettingRounds();
+            // 开始模拟
+            simulateRound(1);
         }
     </script>
-
-    <!-- 可选：引入随机数种子库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 </body>
 </html>
