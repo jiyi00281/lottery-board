@@ -52,7 +52,11 @@
         <tbody id="resultsBody"></tbody>
     </table>
 
-    <div id="nextPrediction" class="prediction"></div>
+    <div id="nextPrediction" class="prediction">
+        <h3>下一轮预测</h3>
+        <p id="predictedAmount"></p>
+        <p id="predictedDirection"></p>
+    </div>
 
     <script>
         class BettingStrategy {
@@ -125,7 +129,8 @@
             currentRound = 0;
 
             document.getElementById('resultsBody').innerHTML = '';
-            document.getElementById('nextPrediction').innerHTML = '';
+            document.getElementById('predictedAmount').innerText = '';
+            document.getElementById('predictedDirection').innerText = '';
 
             updateInputs();
         }
@@ -140,6 +145,10 @@
                 document.getElementById('betDirection').disabled = false;
                 document.getElementById('roundResult').disabled = false;
                 document.getElementById('submitButton').disabled = false;
+
+                // 更新预测信息
+                document.getElementById('predictedAmount').innerText = `预测投注金额: ${nextRound["投注金额"]}`;
+                document.getElementById('predictedDirection').innerText = `预测投注方向: ${nextRound["投注方向"]}`;
             } else {
                 alert('所有轮次已完成！');
                 document.getElementById('submitButton').disabled = true;
