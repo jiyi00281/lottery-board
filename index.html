@@ -61,21 +61,21 @@
     <script>
         class BettingStrategy {
             constructor(initialBalance) {
-                this.balance = initialBalance;
-                this.base_bet = initialBalance * 0.05; // 初始投注金额为当前余额的5%
+                this.balance = Math.round(initialBalance); // 四舍五入初始余额
+                this.base_bet = Math.round(this.balance * 0.05); // 初始投注金额为当前余额的5%
                 this.win_streak = 0;
                 this.loss_streak = 0;
                 this.total_rounds = 0;
             }
 
             calculate_bet_amount() {
-                const max_bet = this.balance * 0.03;
+                const max_bet = Math.round(this.balance * 0.03); // 保证最大下注金额为整数
 
                 let bet;
                 if (this.win_streak > 0) {
-                    bet = this.base_bet * (1 + this.win_streak * 0.1); // 连续赢增加
+                    bet = Math.round(this.base_bet * (1 + this.win_streak * 0.1)); // 连续赢增加
                 } else if (this.loss_streak > 0) {
-                    bet = this.base_bet * (1 - this.loss_streak * 0.15); // 连续输减少
+                    bet = Math.round(this.base_bet * (1 - this.loss_streak * 0.15)); // 连续输减少
                 } else {
                     bet = this.base_bet; // 初始投注金额
                 }
@@ -96,11 +96,11 @@
                 this.total_rounds += 1;
 
                 if (result === "赢") {
-                    this.balance += actual_bet_amount;
+                    this.balance += Math.round(actual_bet_amount); // 更新余额，四舍五入
                     this.win_streak += 1;
                     this.loss_streak = 0;
                 } else {
-                    this.balance -= actual_bet_amount;
+                    this.balance -= Math.round(actual_bet_amount); // 更新余额，四舍五入
                     this.loss_streak += 1;
                     this.win_streak = 0;
                 }
@@ -114,9 +114,9 @@
                 const bet_direction = this.determine_bet_direction();
                 
                 return {
-                    "投注金额": bet_amount.toFixed(2),
+                    "投注金额": bet_amount,
                     "投注方向": bet_direction,
-                    "当前余额": this.balance.toFixed(2)
+                    "当前余额": this.balance
                 };
             }
         }
@@ -178,7 +178,7 @@
                 <td>${betAmount}</td>
                 <td>${betDirection}</td>
                 <td class="${roundResult === '赢' ? 'win' : 'loss'}">${roundResult}</td>
-                <td>${strategy.balance.toFixed(2)}</td>
+                <td>${strategy.balance}</td>
             `;
 
             updateInputs();
