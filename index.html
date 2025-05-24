@@ -26,8 +26,8 @@
         <label>本轮投注金额: <input type="number" id="betAmount" disabled></label>
         <label>本轮投注方向: 
             <select id="betDirection" disabled>
-                <option value="正向">单</option>
-                <option value="反向">双</option>
+                <option value="单">单</option>
+                <option value="双">双</option>
             </select>
         </label>
         <label>本轮结果: 
@@ -86,10 +86,10 @@
             determine_bet_direction() {
                 const base_prob = 0.525;
 
-                if (this.win_streak > 2) return "反向";
-                if (this.loss_streak > 2) return "正向";
+                if (this.win_streak > 2) return "双"; // 反向标为“双”
+                if (this.loss_streak > 2) return "单"; // 正向标为“单”
 
-                return Math.random() < base_prob ? "正向" : "反向";
+                return Math.random() < base_prob ? "单" : "双";
             }
 
             update_result(result, actual_bet_amount) {
